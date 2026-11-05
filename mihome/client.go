@@ -32,6 +32,7 @@ type Tokens struct {
 	UserId    string              `json:"user_id"`
 	PassToken string              `json:"pass_Token"`
 	Sids      map[string]SidToken `json:"sids"`
+	OAuth     *OAuthToken         `json:"oauth,omitempty"`
 }
 
 func NewTokens() *Tokens {
@@ -48,6 +49,8 @@ type Client struct {
 	// TokenPath is where the device id and tokens are kept between runs.
 	// Leave it empty to keep them in memory only.
 	TokenPath string
+	// OAuthClientID identifies the OAuth login that realtime events need.
+	OAuthClientID string
 
 	// mu guards Token, so a Client can be shared between goroutines. It is
 	// held during a login: concurrent requests wait for the one login.

@@ -7,6 +7,7 @@ const routes = [
   { path: '/devices/:did', load: () => import('./pages/device.js') },
   { path: '/speakers', load: () => import('./pages/speakers.js') },
   { path: '/speakers/:id', load: () => import('./pages/speaker.js') },
+  { path: '/events', load: () => import('./pages/events.js') },
 ];
 
 // The API answers plain JSON, not {"data": …}.

@@ -5,7 +5,7 @@ import { html, useEffect, useRef, useState } from './lib/html.js';
 import { useResource } from './lib/hooks.js';
 import { usePanel } from './lib/panel.js';
 import { Notice, Empty, toast, toastError, confirmDanger } from './lib/ui.js';
-import { ApiNotice } from './mi.js';
+import { ApiNotice, useEvents } from './mi.js';
 
 // Writing to these is confirmed first: it can open a door or start heating.
 // Actions are always confirmed, since a spec does not say what they do.
@@ -67,6 +67,14 @@ export function DeviceControls({ path, spec, device }) {
     timer.current = setTimeout(values.reload, 1500);
   };
   const risky = RISKY_TYPES.has(spec.type);
+  useEvents(event => {
+    // Changes during an outage were not delivered: read everything again.
+    if (event.type === 'stream.connected') values.reload();
+    if (event.type === 'device.property_changed' && event.device_id === device.did) {
+      const { siid, piid, value } = event.data;
+      values.setValues(v => ({ ...v, [`${siid}.${piid}`]: { value } }));
+    }
+  });
 
   const write = async (service, property, value) => {
     if (risky && !confirmDanger(`确定要修改「${device.name}」的「${property.name}」吗？`)) return false;

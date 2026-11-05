@@ -34,6 +34,11 @@ type Config struct {
 		DevicesTTL time.Duration `yaml:"devices_ttl"`
 		SpecTTL    time.Duration `yaml:"spec_ttl"`
 	} `yaml:"cache"`
+	Events struct {
+		// OAuthClientID turns on realtime events.
+		OAuthClientID string `yaml:"oauth_client_id"`
+		IncludeShared bool   `yaml:"include_shared"`
+	} `yaml:"events"`
 }
 
 func defaultConfig() Config {

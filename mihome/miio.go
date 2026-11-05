@@ -62,6 +62,28 @@ type Home struct {
 	Name   string      `json:"name"`
 	Owner  json.Number `json:"uid"`
 	Shared bool        `json:"-"`
+	// DeviceIDs lists the devices in the home's rooms. It can include gateway
+	// children that HomeDevices leaves out.
+	DeviceIDs []string `json:"-"`
+}
+
+// rawHome is a home as HomeList receives it.
+type rawHome struct {
+	Home
+	Dids  []string `json:"dids"`
+	Rooms []struct {
+		Dids []string `json:"dids"`
+	} `json:"roomlist"`
+}
+
+func (h rawHome) home(shared bool) Home {
+	home := h.Home
+	home.Shared = shared
+	home.DeviceIDs = append(home.DeviceIDs, h.Dids...)
+	for _, room := range h.Rooms {
+		home.DeviceIDs = append(home.DeviceIDs, room.Dids...)
+	}
+	return home
 }
 
 // decodeResult converts a generic API result into a typed value.
@@ -86,16 +108,20 @@ func (s *Client) HomeList() ([]Home, error) {
 		return nil, err
 	}
 	var res struct {
-		Owned  []Home `json:"homelist"`
-		Shared []Home `json:"share_home_list"`
+		Owned  []rawHome `json:"homelist"`
+		Shared []rawHome `json:"share_home_list"`
 	}
 	if err := decodeResult(result, &res); err != nil {
 		return nil, err
 	}
-	for i := range res.Shared {
-		res.Shared[i].Shared = true
+	homes := make([]Home, 0, len(res.Owned)+len(res.Shared))
+	for _, home := range res.Owned {
+		homes = append(homes, home.home(false))
 	}
-	return append(res.Owned, res.Shared...), nil
+	for _, home := range res.Shared {
+		homes = append(homes, home.home(true))
+	}
+	return homes, nil
 }
 
 // HomeDevices returns all the devices of a home. Unlike HomeDeviceList, which

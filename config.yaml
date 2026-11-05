@@ -20,3 +20,10 @@ cache:
   # Homes, devices and speakers. The refresh buttons bypass this.
   devices_ttl: 1m
   spec_ttl: 720h
+
+events:
+  # Realtime events need the OAuth client ID of Xiaomi's Home Assistant integration
+  # (OAUTH2_CLIENT_ID in its source). Leave empty to turn them off. See the README.
+  oauth_client_id: ""
+  # Also follow the homes shared with the account.
+  include_shared: false

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -76,16 +77,31 @@ func run() error {
 	defer db.Close()
 	client := mihome.NewClient(config.username(), config.password())
 	client.TokenPath = config.Account.TokenPath
+	client.OAuthClientID = config.Events.OAuthClientID
 
-	handler := api.New(client, api.Options{
-		Cache:      db,
-		DevicesTTL: config.Cache.DevicesTTL,
-		SpecTTL:    config.Cache.SpecTTL,
-	})
+	options := api.Options{
+		Cache:               db,
+		DevicesTTL:          config.Cache.DevicesTTL,
+		SpecTTL:             config.Cache.SpecTTL,
+		EventsIncludeShared: config.Events.IncludeShared,
+	}
+	if config.Events.OAuthClientID != "" {
+		options.OpenEvents = func(ctx context.Context, hooks mihome.EventOptions) (api.EventStream, error) {
+			return client.OpenEvents(ctx, hooks)
+		}
+	}
+	handler := api.New(client, options)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go handler.RunEvents(ctx)
+
 	server := &http.Server{
 		Addr:              config.API.Listen,
 		Handler:           web.New(handler).Standalone(token),
 		ReadHeaderTimeout: 5 * time.Second,
+		// Ending ctx also ends event streams, which Shutdown would wait for.
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	failed := make(chan error, 1)
 	go func() {
@@ -95,8 +111,6 @@ func run() error {
 	}()
 	log.Printf("Web UI: http://%s, data directory: %s", config.API.Listen, *dir)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	select {
 	case err := <-failed:
 		return err

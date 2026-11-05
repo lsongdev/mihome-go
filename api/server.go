@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,9 @@ type Service interface {
 	HomeList() ([]mihome.Home, error)
 	HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error)
 	FetchSpec(urn string) (*mihome.Spec, error)
+	OAuthReady() bool
+	OAuthURL() (string, error)
+	CompleteOAuth(redirected string) error
 	MiotGetProps(did string, iids []mihome.Iid) ([]any, error)
 	MiotSetProp(did string, iid mihome.Iid, value any) (any, error)
 	MiotAction(did string, iid []int, in []any) (mihome.H, error)
@@ -41,6 +45,10 @@ type Options struct {
 	DevicesTTL time.Duration
 	// SpecTTL is how long device specifications are kept.
 	SpecTTL time.Duration
+	// OpenEvents connects the realtime stream. Without it there are no events.
+	OpenEvents func(context.Context, mihome.EventOptions) (EventStream, error)
+	// EventsIncludeShared also follows the homes shared with the account.
+	EventsIncludeShared bool
 }
 
 type Server struct {
@@ -48,10 +56,17 @@ type Server struct {
 	options Options
 	flight  singleflight.Group
 	mux     *http.ServeMux
+	hub     *eventHub
+	// authorized wakes RunEvents after a login.
+	authorized chan struct{}
 }
 
 func New(service Service, options Options) *Server {
-	s := &Server{service: service, options: options, mux: http.NewServeMux()}
+	s := &Server{service: service, options: options, mux: http.NewServeMux(), hub: newEventHub(), authorized: make(chan struct{}, 1)}
+	s.mux.HandleFunc("GET /events", s.events)
+	s.mux.HandleFunc("GET /events/status", s.eventStatus)
+	s.mux.HandleFunc("GET /oauth", s.oauthURL)
+	s.mux.HandleFunc("POST /oauth", s.oauthComplete)
 	s.mux.HandleFunc("GET /homes", s.homes)
 	s.mux.HandleFunc("GET /devices/{did}", s.device)
 	s.mux.HandleFunc("GET /devices/{did}/spec", s.spec)

@@ -56,6 +56,31 @@ specifications for `cache.spec_ttl` (30 days). Add `?refresh=1` to bypass the ca
 of `/api/homes`, `/api/speakers` and `/api/devices/{did}`. Property values, player
 status and conversations are always live.
 
+#### Realtime events
+
+Device changes arrive through Xiaomi's cloud MQTT broker, the same one its Home
+Assistant integration uses, so state updates on the panel without polling. To turn
+them on, set `events.oauth_client_id` in `config.yaml` and log in once on the panel's
+events page. This login is separate from the password: it uses OAuth tokens, kept in
+`mi.token` and renewed automatically.
+
+This is unofficial. Xiaomi licenses that integration and its cloud interfaces only for
+non-commercial use with Home Assistant, not for other software, and may change or block
+them at any time. Decide for yourself whether to use it; the rest of the panel does
+not need it.
+
+`GET /api/events` is a Server-Sent Events stream of
+`{"seq","time","type","device_id","data"}`, the same shape as zigbee-go. It resumes with
+`Last-Event-ID` or `?after=<seq>`, and only new events are sent without either. The last
+1024 events are kept in memory.
+
+| Type | Data |
+| --- | --- |
+| `device.property_changed` | `siid`, `piid`, `value` |
+| `device.event` | `siid`, `eiid`, `arguments` |
+| `device.availability_changed` | `online` |
+| `stream.connected`, `stream.disconnected` | Changes during an outage are not delivered, so read state again after `stream.connected` |
+
 | Route | Description |
 | --- | --- |
 | `GET /api/homes` | Homes, including shared ones, with their devices |
@@ -64,6 +89,10 @@ status and conversations are always live.
 | `GET /api/devices/{did}/props?iid=2.1` | Read MIoT properties |
 | `PUT /api/devices/{did}/props` | Write a property: `{"siid","piid","value"}` |
 | `POST /api/devices/{did}/actions` | Run an action: `{"siid","aiid","in"}` |
+| `GET /api/events` | Realtime events, as above |
+| `GET /api/events/status` | Whether events are on, logged in and connected |
+| `GET /api/oauth` | The login page for events |
+| `POST /api/oauth` | Finish the login: `{"url":"<address redirected to>"}` |
 | `GET /api/speakers` | Speakers |
 | `GET /api/speakers/{id}` | One speaker |
 | `GET /api/speakers/{id}/conversations?limit=50` | Conversation records |

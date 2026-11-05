@@ -1,5 +1,5 @@
 // Mi Home UI conventions on top of the shared components.
-import { html, useRef } from './lib/html.js';
+import { html, useEffect, useRef, useState } from './lib/html.js';
 import { useResource } from './lib/hooks.js';
 import { usePanel } from './lib/panel.js';
 import { Notice, Status } from './lib/ui.js';
@@ -24,6 +24,24 @@ export function useCached(path) {
     resource.reload();
   };
   return { ...resource, refresh };
+}
+
+// useEvents calls onEvent for each realtime event, from now on or, with after, from
+// that sequence number. EventSource reconnects on its own and resumes from the last
+// event it saw. It returns whether the stream to this server is up.
+export function useEvents(onEvent, { after } = {}) {
+  const { api } = usePanel();
+  const handler = useRef(onEvent);
+  handler.current = onEvent;
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    const source = new EventSource(api.url('/events', { after }));
+    source.onopen = () => setLive(true);
+    source.onerror = () => setLive(false);
+    source.onmessage = message => handler.current(JSON.parse(message.data));
+    return () => source.close();
+  }, [api, after]);
+  return live;
 }
 
 // ApiNotice shows an API error. When Xiaomi asks for a security verification it

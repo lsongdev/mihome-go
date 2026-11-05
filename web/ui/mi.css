@@ -64,3 +64,14 @@
   .control-label { grid-column: 1 / -1; }
   .control > :nth-child(2):last-child { grid-column: 1 / -1; }
 }
+
+/* Event list */
+.login-form { margin-top: 16px; }
+.event-row { display: grid; grid-template-columns: 170px 80px minmax(0, 200px) minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--border); }
+.event-row:first-child { border-top: 0; }
+.event-time, .event-type { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.event-value { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .event-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .event-value { grid-column: 1 / -1; }
+}

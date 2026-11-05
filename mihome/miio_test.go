@@ -31,7 +31,7 @@ func TestHomeListIncludesSharedHomes(t *testing.T) {
 			t.Errorf("shared homes were not requested: %v", data)
 		}
 		return `{"code":0,"result":{
-			"homelist":[{"id":"872001099423","name":"mine","uid":1}],
+			"homelist":[{"id":"872001099423","name":"mine","uid":1,"dids":["a"],"roomlist":[{"dids":["lumi.b"]},{"dids":null}]}],
 			"share_home_list":[{"id":"384001595038","name":"theirs","uid":2885686517}]
 		}}`
 	})
@@ -41,6 +41,9 @@ func TestHomeListIncludesSharedHomes(t *testing.T) {
 	}
 	if len(homes) != 2 || homes[0].Shared || !homes[1].Shared {
 		t.Fatalf("unexpected homes: %+v", homes)
+	}
+	if len(homes[0].DeviceIDs) != 2 || homes[0].DeviceIDs[1] != "lumi.b" || homes[1].DeviceIDs != nil {
+		t.Fatalf("device ids: %+v", homes)
 	}
 	if homes[1].ID != "384001595038" || homes[1].Owner != "2885686517" {
 		t.Fatalf("ids were altered: %+v", homes[1])

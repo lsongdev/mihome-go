@@ -8,6 +8,7 @@
   "home": "/",
   "nav": [
     { "path": "/", "title": "设备", "icon": "◉" },
-    { "path": "/speakers", "title": "音箱", "icon": "♪" }
+    { "path": "/speakers", "title": "音箱", "icon": "♪" },
+    { "path": "/events", "title": "事件", "icon": "≡" }
   ]
 }
