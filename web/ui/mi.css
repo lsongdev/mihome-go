@@ -34,11 +34,11 @@
 .conversation-answer { color: var(--muted); overflow-wrap: anywhere; }
 
 /* Controls generated from a device's specification */
-.controls { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; }
-.control { display: flex; gap: 12px; align-items: center; margin: 0; min-width: 0; max-width: 100%; }
-.control > .input { width: auto; min-width: 0; }
-.control-wide { flex: 0 0 100%; display: grid; grid-template-columns: minmax(96px, 200px) minmax(0, 1fr) auto; }
-.control-wide > :nth-child(2):last-child { grid-column: 2 / -1; }
+.controls { display: grid; gap: 16px; }
+.control { display: grid; grid-template-columns: minmax(96px, 200px) minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 0; min-width: 0; }
+.control > :nth-child(2):last-child { grid-column: 2 / -1; }
+.control > .input { width: auto; min-width: 0; justify-self: end; }
+.control > .button { justify-self: end; }
 .control-label { color: var(--muted); overflow-wrap: anywhere; }
 .control-value { overflow-wrap: anywhere; }
 .control-end { display: flex; justify-content: flex-end; }
@@ -46,7 +46,6 @@
 .control-range output { min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
 .control-field { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .control-field .input { flex: 1; min-width: 0; }
-.control-action { flex-wrap: wrap; }
 .control-args { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; max-width: min(100%, 360px); }
 .control-wide > .control-args { max-width: none; }
 .control-args .input { flex: 1 1 120px; min-width: 0; width: auto; }
@@ -64,7 +63,8 @@
 .advanced > summary { cursor: pointer; font-size: 15px; font-weight: 600; }
 .advanced > p { margin: 12px 0; }
 @media (max-width: 640px) {
-  .controls { gap: 16px 24px; }
+  .control { grid-template-columns: minmax(0, 1fr) auto; }
+  .control > :nth-child(2):last-child { grid-column: 2; }
   .control-wide { grid-template-columns: minmax(0, 1fr) auto; }
   .control-wide > .control-label { grid-column: 1 / -1; }
   .control-wide > :nth-child(2):last-child { grid-column: 1 / -1; }
