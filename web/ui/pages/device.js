@@ -2,7 +2,7 @@ import { html, useState } from '../lib/html.js';
 import { useAction } from '../lib/hooks.js';
 import { Page, Notice, Loading, KV, Badge, toast, confirmDanger } from '../lib/ui.js';
 import { usePanel } from '../lib/panel.js';
-import { useApi, useCached, ApiNotice, OnlineStatus } from '../mi.js';
+import { useApi, useCached, useAvailability, ApiNotice, OnlineStatus } from '../mi.js';
 import { DeviceControls } from '../controls.js';
 import { CameraView } from '../camera.js';
 import { displaySpec } from '../lib/spec.js';
@@ -13,6 +13,7 @@ export default function Device() {
   const { params } = usePanel();
   const path = `/devices/${encodeURIComponent(params.did)}`;
   const resource = useCached(path);
+  const online = useAvailability(resource.refresh);
   const specResource = useApi(`${path}/spec`);
   const spec = { ...specResource, data: specResource.data ? displaySpec(specResource.data) : specResource.data };
   const actions = html`<button class="button" disabled=${resource.loading} onClick=${resource.refresh}>刷新</button>`;
@@ -21,7 +22,8 @@ export default function Device() {
       ${resource.error ? html`<${ApiNotice} error=${resource.error} />` : html`<${Loading} />`}
     <//>`;
   }
-  const { device: d, home, shared } = resource.data;
+  const { device, home, shared } = resource.data;
+  const d = { ...device, online: online(device.did, device.online) };
   return html`<${Page} title=${d.name} subtitle=${html`<${OnlineStatus} online=${d.online} />`} actions=${actions}>
     <section class="section">
       <h2>设备信息</h2>

@@ -2,19 +2,20 @@ import { html, useEffect, useState } from '../lib/html.js';
 import { useAction } from '../lib/hooks.js';
 import { Page, Loading, Empty, KV, toast } from '../lib/ui.js';
 import { usePanel } from '../lib/panel.js';
-import { useApi, ApiNotice, OnlineStatus, dateTime, playerInfo } from '../mi.js';
+import { useApi, useCached, useAvailability, ApiNotice, OnlineStatus, dateTime, playerInfo } from '../mi.js';
 
 export default function Speaker() {
   const { params, href } = usePanel();
   const path = `/speakers/${encodeURIComponent(params.id)}`;
-  const speaker = useApi(path);
+  const speaker = useCached(path);
+  const online = useAvailability(speaker.refresh);
   const back = { href: href('/speakers'), label: '音箱' };
   if (speaker.data === undefined) {
     return html`<${Page} title="音箱" back=${back}>
       ${speaker.error ? html`<${ApiNotice} error=${speaker.error} />` : html`<${Loading} />`}
     <//>`;
   }
-  const s = speaker.data;
+  const s = { ...speaker.data, online: online(speaker.data.miot_did, speaker.data.online) };
   return html`<${Page} title=${s.name} back=${back} subtitle=${html`<${OnlineStatus} online=${s.online} />`}>
     <section class="section">
       <h2>设备信息</h2>

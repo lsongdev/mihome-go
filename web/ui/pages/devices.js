@@ -1,20 +1,15 @@
-import { html, useState } from '../lib/html.js';
+import { html } from '../lib/html.js';
 import { Page, Loading, Empty, Badge } from '../lib/ui.js';
 import { usePanel } from '../lib/panel.js';
-import { useCached, useEvents, ApiNotice, OnlineStatus, byName } from '../mi.js';
+import { useCached, useAvailability, ApiNotice, OnlineStatus, byName } from '../mi.js';
 
 const FILTERS = [['', '全部'], ['online', '在线'], ['offline', '离线']];
 
 export default function Devices() {
   const { query, setQuery } = usePanel();
   const homes = useCached('/homes');
-  // Availability changes since the list was loaded.
-  const [online, setOnline] = useState({});
-  useEvents(event => {
-    if (event.type === 'device.availability_changed') setOnline(o => ({ ...o, [event.device_id]: event.data.online }));
-    if (event.type === 'stream.connected') { setOnline({}); homes.refresh(); }
-  });
-  const current = d => (d.did in online ? { ...d, online: online[d.did] } : d);
+  const online = useAvailability(homes.refresh);
+  const current = d => ({ ...d, online: online(d.did, d.online) });
   const search = (query.q || '').toLowerCase();
   const matches = d => (!query.status || d.online === (query.status === 'online'))
     && (!search || [d.name, d.model, d.did].join(' ').toLowerCase().includes(search));

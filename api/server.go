@@ -334,7 +334,7 @@ func (s *Server) action(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) allSpeakers(r *http.Request) ([]Speaker, error) {
-	return cached(s, "speakers", s.options.DevicesTTL, wantsRefresh(r), false, func() ([]Speaker, error) {
+	list, err := cached(s, "speakers", s.options.DevicesTTL, wantsRefresh(r), false, func() ([]Speaker, error) {
 		devices, err := s.service.ListMinaDevices(1)
 		if err != nil {
 			return nil, err
@@ -345,6 +345,31 @@ func (s *Server) allSpeakers(r *http.Request) ([]Speaker, error) {
 		}
 		return list, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	// MiNA presence can disagree with Mi Home availability. Use the same
+	// device status as /homes, joined by DID, on every read (even a cache hit).
+	// Keep MiNA's status for speakers absent from Mi Home or when it is unavailable.
+	homes, err := s.allHomes(r)
+	if err != nil {
+		log.Printf("speaker availability: %v", err)
+		return list, nil
+	}
+	online := make(map[string]bool)
+	for _, home := range homes {
+		for _, device := range home.Devices {
+			online[device.Did] = device.Online
+		}
+	}
+	out := make([]Speaker, len(list))
+	copy(out, list)
+	for i := range out {
+		if status, found := online[out[i].MiotDID]; found && out[i].MiotDID != "" {
+			out[i].Online = status
+		}
+	}
+	return out, nil
 }
 
 func (s *Server) speakers(w http.ResponseWriter, r *http.Request) {

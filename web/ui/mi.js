@@ -44,6 +44,22 @@ export function useEvents(onEvent, { after } = {}) {
   return live;
 }
 
+// All device views use the MIoT DID for live availability, including speakers
+// whose MiNA ID belongs to a different namespace.
+export function useAvailability(refresh) {
+  const [online, setOnline] = useState({});
+  useEvents(event => {
+    if (event.type === 'device.availability_changed') {
+      setOnline(previous => ({ ...previous, [event.device_id]: event.data.online }));
+    }
+    if (event.type === 'stream.connected') {
+      setOnline({});
+      refresh();
+    }
+  });
+  return (did, fallback) => did in online ? online[did] : fallback;
+}
+
 // ApiNotice shows an API error. When Xiaomi asks for a security verification it
 // links to the page that does it, since nothing works until then.
 export function ApiNotice({ error }) {
