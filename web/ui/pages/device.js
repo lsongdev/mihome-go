@@ -5,6 +5,7 @@ import { usePanel } from '../lib/panel.js';
 import { useApi, useCached, ApiNotice, OnlineStatus } from '../mi.js';
 import { DeviceControls } from '../controls.js';
 import { CameraView } from '../camera.js';
+import { displaySpec } from '../lib/spec.js';
 
 const SPEC_URL = 'https://miot-spec.org/miot-spec-v2/instances?status=all';
 
@@ -12,7 +13,8 @@ export default function Device() {
   const { params } = usePanel();
   const path = `/devices/${encodeURIComponent(params.did)}`;
   const resource = useCached(path);
-  const spec = useApi(`${path}/spec`);
+  const specResource = useApi(`${path}/spec`);
+  const spec = { ...specResource, data: specResource.data ? displaySpec(specResource.data) : specResource.data };
   const actions = html`<button class="button" disabled=${resource.loading} onClick=${resource.refresh}>刷新</button>`;
   if (resource.data === undefined) {
     return html`<${Page} title="设备" actions=${actions}>

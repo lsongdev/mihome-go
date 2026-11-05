@@ -1,43 +1,12 @@
 package mihome
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 )
-
-func TestFetchSpecLanguageSelection(t *testing.T) {
-	translations := `{"data":{"zh_cn":{"service:002":"风扇"},"ja":{"service:002":"ファン","service:002:property:001":"電源","service:002:property:002:valuelist:000":"弱","service:002:action:001":"切替","service:002:event:1007":"故障"}}}`
-	for _, language := range []string{"", "zh_cn", "ja", "missing"} {
-		t.Run(language, func(t *testing.T) {
-			client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
-				if strings.Contains(req.URL.Path, "multiLanguage") {
-					return response(200, translations, "")
-				}
-				return response(200, fanSpec, "")
-			})
-			spec, err := client.FetchSpec("urn:x:device:fan:1", language)
-			if err != nil {
-				t.Fatal(err)
-			}
-			service := spec.Services[0]
-			want := map[string]string{"": "风扇", "zh_cn": "风扇", "ja": "ファン", "missing": "Fan"}[language]
-			if service.Name != want {
-				t.Fatalf("name = %q, want %q", service.Name, want)
-			}
-			if language == "ja" {
-				if service.Properties[0].Name != "電源" || service.Properties[1].Options[0].Name != "弱" || service.Actions[0].Name != "切替" || service.Events[0].Name != "故障" {
-					data, _ := json.Marshal(service)
-					t.Fatalf("translations = %s", data)
-				}
-				if service.Properties[2].Name != "Brightness" {
-					t.Fatal("missing translation must use the original description")
-				}
-			}
-		})
-	}
-}
 
 const fanSpec = `{"type":"urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1","description":"Fan","services":[
  {"iid":2,"type":"urn:miot-spec-v2:service:fan:00007808:dmaker-p45:1","description":"Fan",
@@ -56,83 +25,76 @@ const fanSpec = `{"type":"urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1","de
 const fanLanguage = `{"data":{"zh_cn":{"service:002":"风扇","service:002:property:001":"开关",
  "service:002:property:002:valuelist:000":"一档","service:002:action:001":"切换","service:002:event:1007":"故障"}}}`
 
-func TestFetchSpec(t *testing.T) {
+func TestFetchOriginalSpecDocuments(t *testing.T) {
 	urn := "urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1"
+	ctx := context.WithValue(context.Background(), struct{}{}, "request")
 	client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
+		if req.Context() != ctx {
+			t.Error("request context was lost")
+		}
 		if req.URL.Host != "miot-spec.org" {
-			t.Errorf("unexpected host %s", req.URL.Host)
+			t.Fatalf("host = %s", req.URL.Host)
 		}
 		if strings.Contains(req.URL.Path, "multiLanguage") {
 			if req.URL.Query().Get("urn") != urn {
-				t.Errorf("urn = %q", req.URL.Query().Get("urn"))
+				t.Fatal("translation URN missing")
 			}
 			return response(200, fanLanguage, "")
 		}
 		if req.URL.Query().Get("type") != urn {
-			t.Errorf("type = %q", req.URL.Query().Get("type"))
+			t.Fatal("spec URN missing")
 		}
 		return response(200, fanSpec, "")
 	})
-	spec, err := client.FetchSpec(urn, "")
-	if err != nil {
-		t.Fatal(err)
+	raw, err := client.FetchSpec(ctx, urn)
+	if err != nil || string(raw) != fanSpec {
+		t.Fatalf("spec changed: %s, %v", raw, err)
 	}
-	if spec.Type != "fan" || len(spec.Services) != 1 {
-		t.Fatalf("spec = %+v", spec)
-	}
-	service := spec.Services[0]
-	if service.Name != "风扇" || service.Type != "fan" {
-		t.Fatalf("service = %+v", service)
-	}
-	on, level, brightness := service.Properties[0], service.Properties[1], service.Properties[2]
-	if on.Name != "开关" || on.Unit != "" || on.Type != "on" {
-		t.Errorf("on = %+v", on)
-	}
-	// Translated by position: the first option has value 5.
-	if level.Options[0].Name != "一档" || level.Options[0].Value != float64(5) || level.Options[1].Name != "Level2" {
-		t.Errorf("level = %+v", level)
-	}
-	if brightness.Name != "Brightness" || *brightness.Range != (SpecRange{Min: 1, Max: 100, Step: 5}) || brightness.Unit != "percentage" {
-		t.Errorf("brightness = %+v", brightness)
-	}
-	if service.Actions[0].Name != "切换" || service.Actions[1].In[0] != 3 || service.Actions[0].In == nil {
-		t.Errorf("actions = %+v", service.Actions)
-	}
-	if service.Actions[1].Out[0] != 1 {
-		t.Errorf("action out = %+v", service.Actions[1])
-	}
-	fault, click := service.Events[0], service.Events[1]
-	if fault.Name != "故障" || fault.Iid != 1007 || fault.Type != "fault" || fault.Arguments[1] != 3 {
-		t.Errorf("fault = %+v", fault)
-	}
-	// Untranslated names stay in English, and no arguments is an empty list.
-	if click.Name != "Click" || click.Arguments == nil {
-		t.Errorf("click = %+v", click)
+	translations, err := client.FetchSpecTranslations(ctx, urn)
+	if err != nil || string(translations) != fanLanguage {
+		t.Fatalf("translations changed: %s, %v", translations, err)
 	}
 }
 
-func TestFetchSpecWithoutTranslations(t *testing.T) {
+func TestSpecRejectsInvalidDocuments(t *testing.T) {
+	for _, body := range []string{`null`, `{}`, `{"code":1}`, `{"type":"fan"}`, `not json`} {
+		client := newTestClient(t, "", "", "", func(*http.Request) *http.Response { return response(200, body, "") })
+		if _, err := client.FetchSpec(context.Background(), "urn"); err == nil {
+			t.Errorf("spec accepted %s", body)
+		}
+		if _, err := client.FetchSpecTranslations(context.Background(), "urn"); err == nil {
+			t.Errorf("translations accepted %s", body)
+		}
+	}
+	client := newTestClient(t, "", "", "", func(*http.Request) *http.Response { return response(404, "missing", "") })
+	if _, err := client.FetchSpec(context.Background(), "urn"); err == nil {
+		t.Fatal("expected HTTP failure")
+	}
+	if _, err := client.FetchSpecTranslations(context.Background(), "urn"); err == nil {
+		t.Fatal("expected translation HTTP failure")
+	}
+}
+
+func TestOriginalDocumentsKeepUnknownFieldsAndAllLanguages(t *testing.T) {
+	spec := `{"type":"urn:fan","services":[],"vendor":{"unknown":true}}`
+	translations := `{"data":{"zh_cn":{"service:002":"风扇"},"ja":{"service:002":"ファン"}},"vendor":123}`
 	client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
 		if strings.Contains(req.URL.Path, "multiLanguage") {
-			return response(500, "", "")
+			return response(200, translations, "")
 		}
-		return response(200, fanSpec, "")
+		return response(200, spec, "")
 	})
-	spec, err := client.FetchSpec("urn:x:device:fan:1", "")
-	if err != nil {
+	raw, err := client.FetchSpec(context.Background(), "urn:fan")
+	if err != nil || string(raw) != spec {
+		t.Fatalf("spec = %s, %v", raw, err)
+	}
+	raw, err = client.FetchSpecTranslations(context.Background(), "urn:fan")
+	if err != nil || string(raw) != translations {
+		t.Fatalf("translations = %s, %v", raw, err)
+	}
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
 		t.Fatal(err)
-	}
-	if spec.Services[0].Name != "Fan" {
-		t.Fatalf("service = %+v", spec.Services[0])
-	}
-}
-
-func TestFetchSpecFailure(t *testing.T) {
-	client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
-		return response(404, "missing", "")
-	})
-	if _, err := client.FetchSpec("urn:x:device:fan:1", ""); err == nil {
-		t.Fatal("expected an error")
 	}
 }
 

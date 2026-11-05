@@ -23,7 +23,8 @@ import (
 type Service interface {
 	HomeList() ([]mihome.Home, error)
 	HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error)
-	FetchSpec(urn, language string) (*mihome.Spec, error)
+	FetchSpec(ctx context.Context, urn string) (json.RawMessage, error)
+	FetchSpecTranslations(ctx context.Context, urn string) (json.RawMessage, error)
 	OAuthReady() bool
 	OAuthURL() (string, error)
 	CompleteOAuth(redirected string) error
@@ -223,9 +224,9 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// specCachePrefix has a version, so that a change to mihome.Spec does not leave
-// entries without the new fields in place for a whole SpecTTL.
-const specCachePrefix = "spec2:"
+// Original upstream documents are cached separately and shared by all languages.
+const specCachePrefix = "spec-raw:"
+const specTranslationsCachePrefix = "spec-translations:"
 
 // spec answers the device's specification, or null if it has none.
 func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
@@ -240,10 +241,27 @@ func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A specification hardly ever changes, so an old one beats none at all.
-	spec, err := cached(s, specCachePrefix+s.options.SpecLanguage+":"+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
-		return s.service.FetchSpec(urn, s.options.SpecLanguage)
+	raw, err := cached(s, specCachePrefix+urn, s.options.SpecTTL, wantsRefresh(r), true, func() (json.RawMessage, error) {
+		return s.service.FetchSpec(r.Context(), urn)
 	})
-	respond(w, spec, err)
+	if err != nil {
+		writeUpstreamError(w, err)
+		return
+	}
+	translations, err := cached(s, specTranslationsCachePrefix+urn, s.options.SpecTTL, wantsRefresh(r), true, func() (json.RawMessage, error) {
+		return s.service.FetchSpecTranslations(r.Context(), urn)
+	})
+	// Missing translations must not prevent device controls from loading. Failed
+	// downloads aren't cached, so the next request can retry them independently.
+	if err != nil {
+		log.Printf("spec translations %s: %v", urn, err)
+		translations = nil
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Spec         json.RawMessage `json:"spec"`
+		Translations json.RawMessage `json:"translations"`
+		Language     string          `json:"language"`
+	}{raw, translations, s.options.SpecLanguage})
 }
 
 // getProps reads MIoT properties, given as ?iid=<siid>.<piid>.

@@ -1,228 +1,71 @@
 package mihome
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 const specBase = "https://miot-spec.org"
 
-// DefaultSpecLanguage is the MIoT translation language used when none is selected.
+// DefaultSpecLanguage is the UI's default MIoT translation language.
 const DefaultSpecLanguage = "zh_cn"
 
-// Spec describes what a device can do, from the public MIoT specification.
-// Names use the requested language when a translation exists.
-type Spec struct {
-	URN      string        `json:"urn"`
-	Type     string        `json:"type"`
-	Name     string        `json:"name"`
-	Services []SpecService `json:"services"`
-}
-
-type SpecService struct {
-	Iid        int            `json:"iid"`
-	Type       string         `json:"type"`
-	Name       string         `json:"name"`
-	Properties []SpecProperty `json:"properties"`
-	Actions    []SpecAction   `json:"actions"`
-	Events     []SpecEvent    `json:"events"`
-}
-
-type SpecProperty struct {
-	Iid     int          `json:"iid"`
-	Type    string       `json:"type"`
-	Name    string       `json:"name"`
-	Format  string       `json:"format"`
-	Access  []string     `json:"access"`
-	Unit    string       `json:"unit,omitempty"`
-	Range   *SpecRange   `json:"range,omitempty"`
-	Options []SpecOption `json:"options,omitempty"`
-}
-
-type SpecRange struct {
-	Min  float64 `json:"min"`
-	Max  float64 `json:"max"`
-	Step float64 `json:"step"`
-}
-
-type SpecOption struct {
-	Value any    `json:"value"`
-	Name  string `json:"name"`
-}
-
-type SpecAction struct {
-	Iid  int    `json:"iid"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-	// In lists the iids of the service's properties that are the arguments, and
-	// Out the ones that are the results.
-	In  []int `json:"in"`
-	Out []int `json:"out"`
-}
-
-type SpecEvent struct {
-	Iid  int    `json:"iid"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-	// Arguments lists the iids of the service's properties that the event carries.
-	Arguments []int `json:"arguments"`
-}
-
-type rawSpec struct {
-	Type        string `json:"type"`
-	Description string `json:"description"`
-	Services    []struct {
-		Iid         int    `json:"iid"`
-		Type        string `json:"type"`
-		Description string `json:"description"`
-		Properties  []struct {
-			Iid         int       `json:"iid"`
-			Type        string    `json:"type"`
-			Description string    `json:"description"`
-			Format      string    `json:"format"`
-			Access      []string  `json:"access"`
-			Unit        string    `json:"unit"`
-			ValueRange  []float64 `json:"value-range"`
-			ValueList   []struct {
-				Value       any    `json:"value"`
-				Description string `json:"description"`
-			} `json:"value-list"`
-		} `json:"properties"`
-		Actions []struct {
-			Iid         int    `json:"iid"`
-			Type        string `json:"type"`
-			Description string `json:"description"`
-			In          []int  `json:"in"`
-			Out         []int  `json:"out"`
-		} `json:"actions"`
-		Events []struct {
-			Iid         int    `json:"iid"`
-			Type        string `json:"type"`
-			Description string `json:"description"`
-			Arguments   []int  `json:"arguments"`
-		} `json:"events"`
-	} `json:"services"`
-}
-
-// FetchSpec downloads the specification named by a device's SpecType. Missing
-// translations leave the original descriptions in place. An empty language uses
-// DefaultSpecLanguage; other values are keys from the multiLanguage JSON.
-func (c *Client) FetchSpec(urn, language string) (*Spec, error) {
-	if language == "" {
-		language = DefaultSpecLanguage
-	}
-	var raw rawSpec
-	err := c.getSpecJSON("/miot-spec-v2/instance?type="+url.QueryEscape(urn), &raw)
+// FetchSpec returns the original specification JSON, including vendor fields.
+func (c *Client) FetchSpec(ctx context.Context, urn string) (json.RawMessage, error) {
+	raw, err := c.getSpecJSON(ctx, "/miot-spec-v2/instance?type="+url.QueryEscape(urn))
 	if err != nil {
 		return nil, fmt.Errorf("获取设备规格失败: %w", err)
+	}
+	var spec struct {
+		Type     string            `json:"type"`
+		Services []json.RawMessage `json:"services"`
+	}
+	if err := json.Unmarshal(raw, &spec); err != nil || spec.Type == "" || spec.Services == nil {
+		return nil, fmt.Errorf("invalid MIoT specification")
+	}
+	return raw, nil
+}
+
+// FetchSpecTranslations returns the original multiLanguage JSON for every
+// available language. Translation selection belongs to the UI.
+func (c *Client) FetchSpecTranslations(ctx context.Context, urn string) (json.RawMessage, error) {
+	raw, err := c.getSpecJSON(ctx, "/instance/v2/multiLanguage?urn="+url.QueryEscape(urn))
+	if err != nil {
+		return nil, fmt.Errorf("获取规格翻译失败: %w", err)
 	}
 	var translations struct {
 		Data map[string]map[string]string `json:"data"`
 	}
-	if err := c.getSpecJSON("/instance/v2/multiLanguage?urn="+url.QueryEscape(urn), &translations); err != nil {
-		translations.Data = nil
+	if err := json.Unmarshal(raw, &translations); err != nil || translations.Data == nil {
+		return nil, fmt.Errorf("invalid MIoT translations")
 	}
-	return newSpec(urn, raw, translations.Data[language]), nil
+	return raw, nil
 }
 
-func (c *Client) getSpecJSON(path string, out any) error {
-	req, err := http.NewRequest(http.MethodGet, specBase+path, nil)
+func (c *Client) getSpecJSON(ctx context.Context, path string) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, specBase+path, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		io.Copy(io.Discard, res.Body)
-		return fmt.Errorf("HTTP %d", res.StatusCode)
+		return nil, fmt.Errorf("HTTP %d", res.StatusCode)
 	}
-	return json.NewDecoder(res.Body).Decode(out)
-}
-
-func newSpec(urn string, raw rawSpec, names map[string]string) *Spec {
-	name := func(fallback, format string, args ...any) string {
-		if translated := names[fmt.Sprintf(format, args...)]; translated != "" {
-			return translated
-		}
-		return fallback
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
 	}
-	spec := &Spec{URN: urn, Type: urnName(urn), Name: raw.Description, Services: []SpecService{}}
-	for _, s := range raw.Services {
-		service := SpecService{
-			Iid:        s.Iid,
-			Type:       urnName(s.Type),
-			Name:       name(s.Description, "service:%03d", s.Iid),
-			Properties: []SpecProperty{},
-			Actions:    []SpecAction{},
-			Events:     []SpecEvent{},
-		}
-		for _, p := range s.Properties {
-			property := SpecProperty{
-				Iid:    p.Iid,
-				Type:   urnName(p.Type),
-				Name:   name(p.Description, "service:%03d:property:%03d", s.Iid, p.Iid),
-				Format: p.Format,
-				Access: p.Access,
-			}
-			if p.Unit != "none" {
-				property.Unit = p.Unit
-			}
-			if len(p.ValueRange) >= 2 {
-				property.Range = &SpecRange{Min: p.ValueRange[0], Max: p.ValueRange[1], Step: 1}
-				if len(p.ValueRange) >= 3 && p.ValueRange[2] > 0 {
-					property.Range.Step = p.ValueRange[2]
-				}
-			}
-			// Translations of a value list are keyed by position, not value.
-			for i, option := range p.ValueList {
-				property.Options = append(property.Options, SpecOption{
-					Value: option.Value,
-					Name:  name(option.Description, "service:%03d:property:%03d:valuelist:%03d", s.Iid, p.Iid, i),
-				})
-			}
-			service.Properties = append(service.Properties, property)
-		}
-		for _, a := range s.Actions {
-			service.Actions = append(service.Actions, SpecAction{
-				Iid:  a.Iid,
-				Type: urnName(a.Type),
-				Name: name(a.Description, "service:%03d:action:%03d", s.Iid, a.Iid),
-				In:   emptyIfNil(a.In),
-				Out:  emptyIfNil(a.Out),
-			})
-		}
-		for _, e := range s.Events {
-			service.Events = append(service.Events, SpecEvent{
-				Iid:       e.Iid,
-				Type:      urnName(e.Type),
-				Name:      name(e.Description, "service:%03d:event:%03d", s.Iid, e.Iid),
-				Arguments: emptyIfNil(e.Arguments),
-			})
-		}
-		spec.Services = append(spec.Services, service)
+	if !json.Valid(raw) {
+		return nil, fmt.Errorf("invalid MIoT JSON")
 	}
-	return spec
-}
-
-func emptyIfNil(iids []int) []int {
-	if iids == nil {
-		return []int{}
-	}
-	return iids
-}
-
-// urnName returns "fan" for "urn:miot-spec-v2:service:fan:00007808:dmaker-p45:1".
-func urnName(urn string) string {
-	parts := strings.Split(urn, ":")
-	if len(parts) < 4 {
-		return ""
-	}
-	return parts[3]
+	return json.RawMessage(raw), nil
 }

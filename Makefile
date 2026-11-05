@@ -1,11 +1,14 @@
 GO ?= go
 
-.PHONY: test test-unit test-race vet build deps check-deps
+.PHONY: test test-unit test-ui test-race vet build deps check-deps
 
-test: test-unit test-race vet build
+test: test-unit test-ui test-race vet build
 
 test-unit:
 	$(GO) test ./...
+
+test-ui:
+	node --test web/tests/*.test.mjs
 
 test-race:
 	$(GO) test -race ./...

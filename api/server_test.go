@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,15 +17,16 @@ import (
 // panics.
 type fake struct {
 	Service
-	err       error
-	called    []string
-	iid       mihome.Iid
-	value     any
-	in        []any
-	result    *fakeResult
-	languages []string
-	specs     int
-	homes     int
+	err            error
+	called         []string
+	iid            mihome.Iid
+	value          any
+	in             []any
+	result         *fakeResult
+	translations   int
+	translationErr error
+	specs          int
+	homes          int
 }
 
 type fakeResult struct {
@@ -46,10 +49,13 @@ func (f *fake) HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error) {
 	}, nil
 }
 
-func (f *fake) FetchSpec(urn, language string) (*mihome.Spec, error) {
+func (f *fake) FetchSpec(ctx context.Context, urn string) (json.RawMessage, error) {
 	f.specs++
-	f.languages = append(f.languages, language)
-	return &mihome.Spec{URN: urn, Name: "lamp spec"}, f.err
+	return json.RawMessage(`{"type":"urn:lamp","description":"lamp spec","services":[],"vendor-field":true}`), f.err
+}
+func (f *fake) FetchSpecTranslations(ctx context.Context, urn string) (json.RawMessage, error) {
+	f.translations++
+	return json.RawMessage(`{"data":{"zh_cn":{"service:002":"灯"},"en":{"service:002":"Light"}},"vendor-field":true}`), f.translationErr
 }
 
 func (f *fake) ListMinaDevices(int) ([]mihome.DeviceData, error) {
@@ -295,22 +301,71 @@ func TestSpecIsCached(t *testing.T) {
 	}
 }
 
-func TestSpecCacheSeparatesLanguages(t *testing.T) {
+func TestSpecCacheSharesOriginalDocumentsAcrossLanguages(t *testing.T) {
 	f, cache := &fake{}, newMemoryCache()
-	for _, language := range []string{"", "en", "zh_cn", "en"} {
+	for _, language := range []string{"zh_cn", "en", "ja"} {
 		s := New(f, Options{Cache: cache, DevicesTTL: time.Hour, SpecTTL: time.Hour, SpecLanguage: language})
-		if w := call(s, "GET", "/devices/d1/spec", ""); w.Code != 200 {
+		w := call(s, "GET", "/devices/d1/spec", "")
+		var result struct {
+			Spec         json.RawMessage
+			Translations json.RawMessage
+			Language     string
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.Language != language {
 			t.Fatalf("%s: %d %s", language, w.Code, w.Body)
 		}
+		if !strings.Contains(string(result.Spec), `"description":"lamp spec"`) || !strings.Contains(string(result.Translations), `"zh_cn"`) || !strings.Contains(string(result.Translations), `"en"`) {
+			t.Fatalf("original documents missing: %s", w.Body)
+		}
 	}
-	if f.specs != 2 || strings.Join(f.languages, ",") != "zh_cn,en" {
-		t.Fatalf("fetches = %d, languages = %v", f.specs, f.languages)
+	if f.specs != 1 || f.translations != 1 {
+		t.Fatalf("downloads = %d/%d", f.specs, f.translations)
+	}
+	if len(cache.values) != 3 || !strings.Contains(string(cache.values[specCachePrefix+"urn:lamp"]), `"vendor-field":true`) || !strings.Contains(string(cache.values[specTranslationsCachePrefix+"urn:lamp"]), `"vendor-field":true`) {
+		t.Fatalf("cache = %v", cache.values)
+	}
+}
+
+func TestSpecTranslationFailureRetriesWithoutReloadingSpec(t *testing.T) {
+	f, cache := &fake{translationErr: errors.New("down")}, newMemoryCache()
+	s := New(f, Options{Cache: cache, DevicesTTL: time.Hour, SpecTTL: time.Hour})
+	w := call(s, "GET", "/devices/d1/spec", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"translations":null`) {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	f.translationErr = nil
+	w = call(s, "GET", "/devices/d1/spec", "")
+	if w.Code != 200 || strings.Contains(w.Body.String(), `"translations":null`) || f.specs != 1 || f.translations != 2 {
+		t.Fatalf("%d %s, calls %d/%d", w.Code, w.Body, f.specs, f.translations)
+	}
+	// Both original documents survive an upstream outage after expiry.
+	cache.age = 2 * time.Hour
+	f.translationErr = errors.New("down")
+	delete(cache.values, "homes")
+	w = call(New(&specFailure{fake: f}, s.options), "GET", "/devices/d1/spec", "")
+	if w.Code != 200 || strings.Contains(w.Body.String(), `"translations":null`) {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+func TestSpecRefreshReloadsBothDocuments(t *testing.T) {
+	f, cache := &fake{}, newMemoryCache()
+	s := New(f, Options{Cache: cache, DevicesTTL: time.Hour, SpecTTL: time.Hour})
+	for _, path := range []string{"/devices/d1/spec", "/devices/d1/spec?refresh=1"} {
+		if w := call(s, "GET", path, ""); w.Code != 200 {
+			t.Fatalf("%d %s", w.Code, w.Body)
+		}
+	}
+	if f.specs != 2 || f.translations != 2 {
+		t.Fatalf("calls = %d/%d", f.specs, f.translations)
 	}
 }
 
 type specFailure struct{ *fake }
 
-func (f *specFailure) FetchSpec(string, string) (*mihome.Spec, error) { return nil, errors.New("down") }
+func (f *specFailure) FetchSpec(context.Context, string) (json.RawMessage, error) {
+	return nil, errors.New("down")
+}
 
 func TestSpecOfDeviceWithoutOne(t *testing.T) {
 	f := &fake{}

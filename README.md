@@ -53,13 +53,15 @@ device's `spec_type`. `spec.language` selects the translation language (default
 variable name, or `""` to disable the environment override. Use keys from the
 MIoT translation JSON, such as `zh_cn`, `zh_tw` or `en`. Missing translations or
 a failed translation request leave the original specification descriptions in
-place. Restart after changing the configuration; translated specifications are
-cached separately for each language. Writing to locks and
+place. Restart after changing the configuration. The database caches the original
+specification and complete translation JSON separately, shared by all languages;
+the UI builds display names from them without changing either document. Writing to locks and
 heating appliances, and running any action, asks for confirmation first.
 
 Homes, devices and speakers are cached for `cache.devices_ttl` (1 minute), and
 specifications for `cache.spec_ttl` (30 days). Add `?refresh=1` to bypass the cache
-of `/api/homes`, `/api/speakers` and `/api/devices/{did}`. Property values, player
+of `/api/homes`, `/api/speakers`, `/api/devices/{did}` and
+`/api/devices/{did}/spec`. Property values, player
 status and conversations are always live.
 
 #### Camera video
@@ -102,7 +104,7 @@ not need it.
 | --- | --- |
 | `GET /api/homes` | Homes, including shared ones, with their devices |
 | `GET /api/devices/{did}` | One device and its home |
-| `GET /api/devices/{did}/spec` | The device's MIoT specification, or `null` |
+| `GET /api/devices/{did}/spec` | Original `{spec, translations, language}` documents and selected UI language, or `null` if no spec; `translations` is `null` when unavailable |
 | `GET /api/devices/{did}/props?iid=2.1` | Read MIoT properties |
 | `PUT /api/devices/{did}/props` | Write a property: `{"siid","piid","value"}` |
 | `POST /api/devices/{did}/actions` | Run an action: `{"siid","aiid","in"}` |
