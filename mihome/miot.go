@@ -39,6 +39,27 @@ func (s *Client) MiotGetProps(did string, iids []Iid) ([]any, error) {
 		if !ok {
 			return nil, fmt.Errorf("unexpected prop/get result: %v", resp)
 		}
+		// Some devices reject a mixed property batch with a generic device
+		// error, even for properties that work on their own. Retry only those
+		// entries individually, once; keep successful results and their order.
+		if n > 1 {
+			for index, result := range page {
+				entry, ok := result.(H)
+				if !ok || entry["code"] != float64(-704002000) {
+					continue
+				}
+				for _, iid := range iids[:n] {
+					if entry["siid"] != float64(iid.Siid) || entry["piid"] != float64(iid.Piid) {
+						continue
+					}
+					retried, retryErr := s.MiotGetProps(did, []Iid{iid})
+					if retryErr == nil && len(retried) == 1 {
+						page[index] = retried[0]
+					}
+					break
+				}
+			}
+		}
 		results = append(results, page...)
 		iids = iids[n:]
 	}
