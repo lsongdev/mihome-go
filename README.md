@@ -58,6 +58,11 @@ specification and complete translation JSON separately, shared by all languages;
 the UI builds display names from them without changing either document. Writing to locks and
 heating appliances, and running any action, asks for confirmation first.
 
+Speaker pages use the same specification-based controls for volume, playback and
+text-to-speech when available. Only declared actions are shown, and properties
+that only support notifications are not polled. Speakers without these MIoT
+capabilities retain the MiNA controls.
+
 Homes, devices and speakers are cached for `cache.devices_ttl` (1 minute), and
 specifications for `cache.spec_ttl` (30 days). Add `?refresh=1` to bypass the cache
 of `/api/homes`, `/api/speakers`, `/api/devices/{did}` and

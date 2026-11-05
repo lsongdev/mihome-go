@@ -1,8 +1,11 @@
 import { html, useEffect, useState } from '../lib/html.js';
-import { useAction } from '../lib/hooks.js';
+import { useAction, useResource } from '../lib/hooks.js';
 import { Page, Loading, Empty, KV, toast } from '../lib/ui.js';
 import { usePanel } from '../lib/panel.js';
 import { useApi, useCached, useAvailability, ApiNotice, OnlineStatus, dateTime, playerInfo } from '../mi.js';
+import { displaySpec } from '../lib/spec.js';
+import { speakerControls } from '../lib/speaker.js';
+import { DeviceControls } from '../controls.js';
 
 export default function Speaker() {
   const { params, href } = usePanel();
@@ -21,25 +24,48 @@ export default function Speaker() {
       <h2>设备信息</h2>
       <div class="card"><${KV} items=${[['型号', s.hardware], ['别名', s.alias], ['DID', html`<code>${s.miot_did}</code>`]]} /></div>
     </section>
-    <section class="section"><h2>播报</h2><div class="card"><${Say} path=${path} /></div></section>
-    <section class="section"><h2>播放</h2><div class="card"><${Player} path=${path} online=${s.online} /></div></section>
+    <${SpeakerActions} key=${s.id} path=${path} speaker=${s} />
     <section class="section"><h2>对话记录</h2><${Conversations} path=${path} /></section>
   <//>`;
 }
 
-function Say({ path }) {
+function SpeakerActions({ path, speaker }) {
+  const { api } = usePanel();
+  const devicePath = `/devices/${encodeURIComponent(speaker.miot_did)}`;
+  const resource = useResource(signal => speaker.miot_did
+    ? api.get(`${devicePath}/spec`, { signal }) : Promise.resolve(null), [devicePath]);
+  if (resource.data === undefined && resource.error?.status !== 404) return resource.error
+    ? html`<section class="section"><${ApiNotice} error=${resource.error} />
+        <button class="button" onClick=${resource.reload}>重试</button></section>`
+    : html`<${Loading} />`;
+  const spec = resource.data ? displaySpec(resource.data) : null;
+  const { playback, speech } = speakerControls(spec);
+  return html`
+    <section class="section"><h2>播报</h2><div class="card">
+      <${Say} path=${speech ? devicePath : path} speech=${speech} online=${speaker.online} />
+    </div></section>
+    ${playback ? html`<${DeviceControls} path=${devicePath} spec=${playback}
+        device=${{ did: speaker.miot_did, name: speaker.name, online: speaker.online }} />`
+      : html`<section class="section"><h2>播放</h2><div class="card">
+          <${Player} path=${path} online=${speaker.online} />
+        </div></section>`}`;
+}
+
+function Say({ path, speech, online }) {
   const { api } = usePanel();
   const action = useAction();
   const [text, setText] = useState('');
   const submit = async e => {
     e.preventDefault();
-    const result = await action.run(() => api.post(`${path}/tts`, { text }));
+    const result = await action.run(() => speech
+      ? api.post(`${path}/actions`, { ...speech, in: [text] })
+      : api.post(`${path}/tts`, { text }));
     if (result !== undefined) { setText(''); toast('已发送', 'success'); }
   };
   return html`<form class="inline-form" onSubmit=${submit}>
       <label class="grow">音箱要说的话
         <input class="input" required value=${text} onInput=${e => setText(e.currentTarget.value)} /></label>
-      <button class="button button-primary" disabled=${action.busy}>播报</button>
+      <button class="button button-primary" disabled=${!online || action.busy}>播报</button>
     </form>
     <${ApiNotice} error=${action.error} />`;
 }
