@@ -125,9 +125,7 @@ function Service({ service, values, disabled, write, run }) {
   </section>`;
 }
 
-function Property({ property, entry, disabled, write }) {
-  const p = property.format === 'bool' && property.name.startsWith('默认上电状态')
-    ? { ...property, name: '上电开灯？' } : property;
+function Property({ property: p, entry, disabled, write }) {
   // Remounting the input restores the real value when a write is refused.
   const [attempt, setAttempt] = useState(0);
   const commit = async value => { if (!await write(value)) setAttempt(n => n + 1); };
