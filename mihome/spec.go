@@ -11,8 +11,11 @@ import (
 
 const specBase = "https://miot-spec.org"
 
+// DefaultSpecLanguage is the MIoT translation language used when none is selected.
+const DefaultSpecLanguage = "zh_cn"
+
 // Spec describes what a device can do, from the public MIoT specification.
-// Names are in Chinese when a translation exists.
+// Names use the requested language when a translation exists.
 type Spec struct {
 	URN      string        `json:"urn"`
 	Type     string        `json:"type"`
@@ -106,22 +109,24 @@ type rawSpec struct {
 }
 
 // FetchSpec downloads the specification named by a device's SpecType. Missing
-// translations only leave the English names in place.
-func (c *Client) FetchSpec(urn string) (*Spec, error) {
+// translations leave the original descriptions in place. An empty language uses
+// DefaultSpecLanguage; other values are keys from the multiLanguage JSON.
+func (c *Client) FetchSpec(urn, language string) (*Spec, error) {
+	if language == "" {
+		language = DefaultSpecLanguage
+	}
 	var raw rawSpec
 	err := c.getSpecJSON("/miot-spec-v2/instance?type="+url.QueryEscape(urn), &raw)
 	if err != nil {
 		return nil, fmt.Errorf("获取设备规格失败: %w", err)
 	}
-	var language struct {
-		Data struct {
-			Chinese map[string]string `json:"zh_cn"`
-		} `json:"data"`
+	var translations struct {
+		Data map[string]map[string]string `json:"data"`
 	}
-	if err := c.getSpecJSON("/instance/v2/multiLanguage?urn="+url.QueryEscape(urn), &language); err != nil {
-		language.Data.Chinese = nil
+	if err := c.getSpecJSON("/instance/v2/multiLanguage?urn="+url.QueryEscape(urn), &translations); err != nil {
+		translations.Data = nil
 	}
-	return newSpec(urn, raw, language.Data.Chinese), nil
+	return newSpec(urn, raw, translations.Data[language]), nil
 }
 
 func (c *Client) getSpecJSON(path string, out any) error {

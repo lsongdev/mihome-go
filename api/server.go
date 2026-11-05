@@ -23,7 +23,7 @@ import (
 type Service interface {
 	HomeList() ([]mihome.Home, error)
 	HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error)
-	FetchSpec(urn string) (*mihome.Spec, error)
+	FetchSpec(urn, language string) (*mihome.Spec, error)
 	OAuthReady() bool
 	OAuthURL() (string, error)
 	CompleteOAuth(redirected string) error
@@ -47,6 +47,8 @@ type Options struct {
 	DevicesTTL time.Duration
 	// SpecTTL is how long device specifications are kept.
 	SpecTTL time.Duration
+	// SpecLanguage selects MIoT translations; empty uses mihome.DefaultSpecLanguage.
+	SpecLanguage string
 	// OpenEvents connects the realtime stream. Without it there are no events.
 	OpenEvents func(context.Context, mihome.EventOptions) (EventStream, error)
 	// EventsIncludeShared also follows the homes shared with the account.
@@ -72,6 +74,9 @@ type Server struct {
 }
 
 func New(service Service, options Options) *Server {
+	if options.SpecLanguage == "" {
+		options.SpecLanguage = mihome.DefaultSpecLanguage
+	}
 	s := &Server{service: service, options: options, mux: http.NewServeMux(), hub: newEventHub(), authorized: make(chan struct{}, 1)}
 	s.mux.HandleFunc("GET /events", s.events)
 	s.mux.HandleFunc("GET /events/status", s.eventStatus)
@@ -235,8 +240,8 @@ func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A specification hardly ever changes, so an old one beats none at all.
-	spec, err := cached(s, specCachePrefix+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
-		return s.service.FetchSpec(urn)
+	spec, err := cached(s, specCachePrefix+s.options.SpecLanguage+":"+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
+		return s.service.FetchSpec(urn, s.options.SpecLanguage)
 	})
 	respond(w, spec, err)
 }

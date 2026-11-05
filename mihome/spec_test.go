@@ -1,10 +1,43 @@
 package mihome
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 )
+
+func TestFetchSpecLanguageSelection(t *testing.T) {
+	translations := `{"data":{"zh_cn":{"service:002":"风扇"},"ja":{"service:002":"ファン","service:002:property:001":"電源","service:002:property:002:valuelist:000":"弱","service:002:action:001":"切替","service:002:event:1007":"故障"}}}`
+	for _, language := range []string{"", "zh_cn", "ja", "missing"} {
+		t.Run(language, func(t *testing.T) {
+			client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
+				if strings.Contains(req.URL.Path, "multiLanguage") {
+					return response(200, translations, "")
+				}
+				return response(200, fanSpec, "")
+			})
+			spec, err := client.FetchSpec("urn:x:device:fan:1", language)
+			if err != nil {
+				t.Fatal(err)
+			}
+			service := spec.Services[0]
+			want := map[string]string{"": "风扇", "zh_cn": "风扇", "ja": "ファン", "missing": "Fan"}[language]
+			if service.Name != want {
+				t.Fatalf("name = %q, want %q", service.Name, want)
+			}
+			if language == "ja" {
+				if service.Properties[0].Name != "電源" || service.Properties[1].Options[0].Name != "弱" || service.Actions[0].Name != "切替" || service.Events[0].Name != "故障" {
+					data, _ := json.Marshal(service)
+					t.Fatalf("translations = %s", data)
+				}
+				if service.Properties[2].Name != "Brightness" {
+					t.Fatal("missing translation must use the original description")
+				}
+			}
+		})
+	}
+}
 
 const fanSpec = `{"type":"urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1","description":"Fan","services":[
  {"iid":2,"type":"urn:miot-spec-v2:service:fan:00007808:dmaker-p45:1","description":"Fan",
@@ -40,7 +73,7 @@ func TestFetchSpec(t *testing.T) {
 		}
 		return response(200, fanSpec, "")
 	})
-	spec, err := client.FetchSpec(urn)
+	spec, err := client.FetchSpec(urn, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +118,7 @@ func TestFetchSpecWithoutTranslations(t *testing.T) {
 		}
 		return response(200, fanSpec, "")
 	})
-	spec, err := client.FetchSpec("urn:x:device:fan:1")
+	spec, err := client.FetchSpec("urn:x:device:fan:1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +131,7 @@ func TestFetchSpecFailure(t *testing.T) {
 	client := newTestClient(t, "", "", "", func(req *http.Request) *http.Response {
 		return response(404, "missing", "")
 	})
-	if _, err := client.FetchSpec("urn:x:device:fan:1"); err == nil {
+	if _, err := client.FetchSpec("urn:x:device:fan:1", ""); err == nil {
 		t.Fatal("expected an error")
 	}
 }

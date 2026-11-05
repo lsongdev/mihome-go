@@ -21,6 +21,12 @@ cache:
   devices_ttl: 1m
   spec_ttl: 720h
 
+spec:
+  # MIoT translation key. Missing translations use the original descriptions.
+  language: zh_cn
+  # MI_SPEC_LANGUAGE overrides language. Set to "" to disable the env override.
+  language_env: MI_SPEC_LANGUAGE
+
 events:
   # Realtime events need the OAuth client ID of Xiaomi's Home Assistant integration
   # (OAUTH2_CLIENT_ID in its source). Leave empty to turn them off. See the README.

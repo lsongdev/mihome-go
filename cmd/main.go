@@ -84,6 +84,7 @@ func run() error {
 		Cache:               db,
 		DevicesTTL:          config.Cache.DevicesTTL,
 		SpecTTL:             config.Cache.SpecTTL,
+		SpecLanguage:        config.specLanguage(),
 		EventsIncludeShared: config.Events.IncludeShared,
 		Camera:              camera.New(client.AccountToken),
 	}

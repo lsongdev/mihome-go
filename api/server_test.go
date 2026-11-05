@@ -15,14 +15,15 @@ import (
 // panics.
 type fake struct {
 	Service
-	err    error
-	called []string
-	iid    mihome.Iid
-	value  any
-	in     []any
-	result *fakeResult
-	specs  int
-	homes  int
+	err       error
+	called    []string
+	iid       mihome.Iid
+	value     any
+	in        []any
+	result    *fakeResult
+	languages []string
+	specs     int
+	homes     int
 }
 
 type fakeResult struct {
@@ -45,8 +46,9 @@ func (f *fake) HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error) {
 	}, nil
 }
 
-func (f *fake) FetchSpec(urn string) (*mihome.Spec, error) {
+func (f *fake) FetchSpec(urn, language string) (*mihome.Spec, error) {
 	f.specs++
+	f.languages = append(f.languages, language)
 	return &mihome.Spec{URN: urn, Name: "lamp spec"}, f.err
 }
 
@@ -293,9 +295,22 @@ func TestSpecIsCached(t *testing.T) {
 	}
 }
 
+func TestSpecCacheSeparatesLanguages(t *testing.T) {
+	f, cache := &fake{}, newMemoryCache()
+	for _, language := range []string{"", "en", "zh_cn", "en"} {
+		s := New(f, Options{Cache: cache, DevicesTTL: time.Hour, SpecTTL: time.Hour, SpecLanguage: language})
+		if w := call(s, "GET", "/devices/d1/spec", ""); w.Code != 200 {
+			t.Fatalf("%s: %d %s", language, w.Code, w.Body)
+		}
+	}
+	if f.specs != 2 || strings.Join(f.languages, ",") != "zh_cn,en" {
+		t.Fatalf("fetches = %d, languages = %v", f.specs, f.languages)
+	}
+}
+
 type specFailure struct{ *fake }
 
-func (f *specFailure) FetchSpec(string) (*mihome.Spec, error) { return nil, errors.New("down") }
+func (f *specFailure) FetchSpec(string, string) (*mihome.Spec, error) { return nil, errors.New("down") }
 
 func TestSpecOfDeviceWithoutOne(t *testing.T) {
 	f := &fake{}

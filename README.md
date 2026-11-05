@@ -48,7 +48,13 @@ browsers use the token as the basic authentication password; a non-loopback
 links to the page that does it.
 
 Device pages generate their controls from the MIoT specification named by the
-device's `spec_type`, in Chinese where a translation exists. Writing to locks and
+device's `spec_type`. `spec.language` selects the translation language (default
+`zh_cn`); `MI_SPEC_LANGUAGE` overrides it. Set `spec.language_env` to another
+variable name, or `""` to disable the environment override. Use keys from the
+MIoT translation JSON, such as `zh_cn`, `zh_tw` or `en`. Missing translations or
+a failed translation request leave the original specification descriptions in
+place. Restart after changing the configuration; translated specifications are
+cached separately for each language. Writing to locks and
 heating appliances, and running any action, asks for confirmation first.
 
 Homes, devices and speakers are cached for `cache.devices_ttl` (1 minute), and

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lsongdev/mihome-go/mihome"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,6 +35,10 @@ type Config struct {
 		DevicesTTL time.Duration `yaml:"devices_ttl"`
 		SpecTTL    time.Duration `yaml:"spec_ttl"`
 	} `yaml:"cache"`
+	Spec struct {
+		Language    string `yaml:"language"`
+		LanguageEnv string `yaml:"language_env"`
+	} `yaml:"spec"`
 	Events struct {
 		// OAuthClientID turns on realtime events.
 		OAuthClientID string `yaml:"oauth_client_id"`
@@ -51,6 +56,8 @@ func defaultConfig() Config {
 	c.Database.Path = "mihome.db"
 	c.Cache.DevicesTTL = time.Minute
 	c.Cache.SpecTTL = 30 * 24 * time.Hour
+	c.Spec.Language = mihome.DefaultSpecLanguage
+	c.Spec.LanguageEnv = "MI_SPEC_LANGUAGE"
 	return c
 }
 
@@ -62,6 +69,8 @@ func fromEnv(env, value string) string {
 	}
 	return value
 }
+
+func (c Config) specLanguage() string { return fromEnv(c.Spec.LanguageEnv, c.Spec.Language) }
 
 func (c Config) username() string { return fromEnv(c.Account.UsernameEnv, c.Account.Username) }
 func (c Config) password() string { return fromEnv(c.Account.PasswordEnv, c.Account.Password) }

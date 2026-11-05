@@ -84,6 +84,31 @@ func TestInvalidConfigs(t *testing.T) {
 	}
 }
 
+func TestSpecLanguageConfiguration(t *testing.T) {
+	t.Setenv("MI_SPEC_LANGUAGE", "")
+	config, err := loadConfig(writeConfig(t, "{}\n"))
+	if err != nil || config.specLanguage() != "zh_cn" {
+		t.Fatalf("default language = %q, error = %v", config.specLanguage(), err)
+	}
+	config, err = loadConfig(writeConfig(t, "spec:\n  language: en\n"))
+	if err != nil || config.specLanguage() != "en" {
+		t.Fatalf("configured language = %q, error = %v", config.specLanguage(), err)
+	}
+	t.Setenv("MI_SPEC_LANGUAGE", "zh_tw")
+	if config.specLanguage() != "zh_tw" {
+		t.Fatal("environment must override the file")
+	}
+	config.Spec.LanguageEnv = "MI_TEST_SPEC_LANGUAGE"
+	t.Setenv("MI_TEST_SPEC_LANGUAGE", "ja")
+	if config.specLanguage() != "ja" {
+		t.Fatal("custom environment variable was ignored")
+	}
+	config.Spec.LanguageEnv = ""
+	if config.specLanguage() != "en" {
+		t.Fatal("empty language_env must disable the environment override")
+	}
+}
+
 func TestLoadEnvKeepsExistingVariables(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	content := "# comment\nexport MI_TEST_A=\"quoted\"\nMI_TEST_B=file\nnot a variable\n"
