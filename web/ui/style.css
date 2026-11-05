@@ -40,8 +40,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--primary); text-decoration: none; }
-a:hover { text-decoration: underline; }
-h1, h2, h3 { margin: 0; line-height: 1.3; border-bottom: 0; text-decoration: none; }
+h1, h2, h3 { margin: 0; line-height: 1.3; }
 code, .mono { font-family: var(--mono); font-size: 12.5px; }
 .muted { color: var(--muted); }
 .spacer { flex: 1; }
