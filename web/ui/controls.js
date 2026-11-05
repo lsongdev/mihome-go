@@ -25,10 +25,9 @@ const isNumber = p => /^(u?int\d+|float|double)$/.test(p.format);
 const ordered = spec => [...spec.services].sort((a, b) =>
   (a.type === 'device-information') - (b.type === 'device-information'));
 
-const shown = service => service.properties.some(p => readable(p) || writable(p)) || service.actions.length > 0;
-
 function formatValue(p, entry) {
-  if (!entry) return '—';
+  // Some properties can't be read: they only arrive in notifications or as event arguments.
+  if (!entry) return readable(p) ? '—' : html`<span class="muted">不可读取</span>`;
   if (entry.code) return html`<span class="muted" title=${`错误码 ${entry.code}`}>不可用</span>`;
   const { value } = entry;
   const option = p.options?.find(o => o.value === value);
@@ -99,8 +98,8 @@ export function DeviceControls({ path, spec, device }) {
     }
   };
 
-  const services = ordered(spec).filter(shown);
-  if (!services.length) return html`<${Empty}>这台设备的规格里没有可用的属性或动作<//>`;
+  const services = ordered(spec);
+  if (!services.length) return html`<${Empty}>这台设备的规格里没有服务<//>`;
   return html`
     ${device.online ? null : html`<${Notice} tone="warn">设备离线，无法读取状态或控制。<//>`}
     <${ApiNotice} error=${values.error} />
@@ -112,14 +111,16 @@ export function DeviceControls({ path, spec, device }) {
 }
 
 function Service({ service, values, disabled, write, run }) {
-  const properties = service.properties.filter(p => readable(p) || writable(p));
+  const { properties, actions, events } = service;
   return html`<section class="section">
     <h2>${service.name}</h2>
     <div class="card controls">
       ${properties.map(p => html`<${Property} key=${p.iid} property=${p} entry=${values[`${service.iid}.${p.iid}`]}
         disabled=${disabled} write=${value => write(service, p, value)} />`)}
-      ${service.actions.map(a => html`<${Action} key=${a.iid} service=${service} action=${a}
+      ${actions.map(a => html`<${Action} key=${a.iid} service=${service} action=${a}
         disabled=${disabled} run=${args => run(service, a, args)} />`)}
+      ${events.map(e => html`<${SpecEvent} key=${e.iid} service=${service} event=${e} />`)}
+      ${properties.length + actions.length + events.length ? null : html`<p class="muted">这个服务没有属性、动作或事件。</p>`}
     </div>
   </section>`;
 }
@@ -192,6 +193,18 @@ const initialArgument = p => {
   return isNumber(p) ? 0 : '';
 };
 
+// An iid that the spec does not describe is still listed, by number.
+const propertyNames = (service, iids) => iids
+  .map(iid => service.properties.find(p => p.iid === iid)?.name ?? `#${iid}`).join('、');
+
+// SpecEvent lists something the device can report; the 事件 page shows them as they happen.
+function SpecEvent({ service, event }) {
+  return html`<div class="control">
+    <span class="control-label">${event.name}</span>
+    <span class="control-value muted">事件${event.arguments.length ? `，参数：${propertyNames(service, event.arguments)}` : ''}</span>
+  </div>`;
+}
+
 function Action({ service, action, disabled, run }) {
   const params = action.in.map(iid => service.properties.find(p => p.iid === iid)).filter(Boolean);
   const [args, setArgs] = useState(() => params.map(initialArgument));
@@ -206,7 +219,10 @@ function Action({ service, action, disabled, run }) {
   };
   return html`<form class="control control-action" onSubmit=${submit}>
     <span class="control-label">${action.name}</span>
-    <span class="control-args">${params.map((p, i) => html`<${Argument} key=${p.iid} property=${p} value=${args[i]} set=${v => set(i, v)} />`)}</span>
+    <span class="control-args">
+      ${params.map((p, i) => html`<${Argument} key=${p.iid} property=${p} value=${args[i]} set=${v => set(i, v)} />`)}
+      ${action.out.length ? html`<span class="muted">返回：${propertyNames(service, action.out)}</span>` : null}
+    </span>
     <button class="button button-small" disabled=${disabled || busy || unknown}
       title=${unknown ? '规格中缺少参数定义，请用高级调试' : undefined}>执行</button>
   </form>`;

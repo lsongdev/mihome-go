@@ -15,10 +15,13 @@ const fanSpec = `{"type":"urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1","de
    {"iid":3,"type":"urn:miot-spec-v2:property:brightness:0000000D:dmaker-p45:1","description":"Brightness","format":"uint8","access":["read"],"unit":"percentage","value-range":[1,100,5]}],
   "actions":[
    {"iid":1,"type":"urn:miot-spec-v2:action:toggle:00002811:dmaker-p45:1","description":"Toggle","in":[],"out":[]},
-   {"iid":2,"type":"urn:miot-spec-v2:action:delay:00002812:dmaker-p45:1","description":"Delay","in":[3],"out":[]}]}]}`
+   {"iid":2,"type":"urn:miot-spec-v2:action:delay:00002812:dmaker-p45:1","description":"Delay","in":[3],"out":[1]}],
+  "events":[
+   {"iid":1007,"type":"urn:miot-spec-v2:event:fault:00005001:dmaker-p45:1","description":"Fault","arguments":[1,3]},
+   {"iid":1008,"type":"urn:miot-spec-v2:event:click:00005002:dmaker-p45:1","description":"Click"}]}]}`
 
 const fanLanguage = `{"data":{"zh_cn":{"service:002":"风扇","service:002:property:001":"开关",
- "service:002:property:002:valuelist:000":"一档","service:002:action:001":"切换"}}}`
+ "service:002:property:002:valuelist:000":"一档","service:002:action:001":"切换","service:002:event:1007":"故障"}}}`
 
 func TestFetchSpec(t *testing.T) {
 	urn := "urn:miot-spec-v2:device:fan:0000A005:dmaker-p45:1"
@@ -61,6 +64,17 @@ func TestFetchSpec(t *testing.T) {
 	}
 	if service.Actions[0].Name != "切换" || service.Actions[1].In[0] != 3 || service.Actions[0].In == nil {
 		t.Errorf("actions = %+v", service.Actions)
+	}
+	if service.Actions[1].Out[0] != 1 {
+		t.Errorf("action out = %+v", service.Actions[1])
+	}
+	fault, click := service.Events[0], service.Events[1]
+	if fault.Name != "故障" || fault.Iid != 1007 || fault.Type != "fault" || fault.Arguments[1] != 3 {
+		t.Errorf("fault = %+v", fault)
+	}
+	// Untranslated names stay in English, and no arguments is an empty list.
+	if click.Name != "Click" || click.Arguments == nil {
+		t.Errorf("click = %+v", click)
 	}
 }
 

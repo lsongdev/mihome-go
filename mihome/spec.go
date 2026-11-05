@@ -26,6 +26,7 @@ type SpecService struct {
 	Name       string         `json:"name"`
 	Properties []SpecProperty `json:"properties"`
 	Actions    []SpecAction   `json:"actions"`
+	Events     []SpecEvent    `json:"events"`
 }
 
 type SpecProperty struct {
@@ -54,8 +55,18 @@ type SpecAction struct {
 	Iid  int    `json:"iid"`
 	Type string `json:"type"`
 	Name string `json:"name"`
-	// In lists the iids of the service's properties that are the arguments.
-	In []int `json:"in"`
+	// In lists the iids of the service's properties that are the arguments, and
+	// Out the ones that are the results.
+	In  []int `json:"in"`
+	Out []int `json:"out"`
+}
+
+type SpecEvent struct {
+	Iid  int    `json:"iid"`
+	Type string `json:"type"`
+	Name string `json:"name"`
+	// Arguments lists the iids of the service's properties that the event carries.
+	Arguments []int `json:"arguments"`
 }
 
 type rawSpec struct {
@@ -83,7 +94,14 @@ type rawSpec struct {
 			Type        string `json:"type"`
 			Description string `json:"description"`
 			In          []int  `json:"in"`
+			Out         []int  `json:"out"`
 		} `json:"actions"`
+		Events []struct {
+			Iid         int    `json:"iid"`
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Arguments   []int  `json:"arguments"`
+		} `json:"events"`
 	} `json:"services"`
 }
 
@@ -138,6 +156,7 @@ func newSpec(urn string, raw rawSpec, names map[string]string) *Spec {
 			Name:       name(s.Description, "service:%03d", s.Iid),
 			Properties: []SpecProperty{},
 			Actions:    []SpecAction{},
+			Events:     []SpecEvent{},
 		}
 		for _, p := range s.Properties {
 			property := SpecProperty{
@@ -166,20 +185,32 @@ func newSpec(urn string, raw rawSpec, names map[string]string) *Spec {
 			service.Properties = append(service.Properties, property)
 		}
 		for _, a := range s.Actions {
-			in := a.In
-			if in == nil {
-				in = []int{}
-			}
 			service.Actions = append(service.Actions, SpecAction{
 				Iid:  a.Iid,
 				Type: urnName(a.Type),
 				Name: name(a.Description, "service:%03d:action:%03d", s.Iid, a.Iid),
-				In:   in,
+				In:   emptyIfNil(a.In),
+				Out:  emptyIfNil(a.Out),
+			})
+		}
+		for _, e := range s.Events {
+			service.Events = append(service.Events, SpecEvent{
+				Iid:       e.Iid,
+				Type:      urnName(e.Type),
+				Name:      name(e.Description, "service:%03d:event:%03d", s.Iid, e.Iid),
+				Arguments: emptyIfNil(e.Arguments),
 			})
 		}
 		spec.Services = append(spec.Services, service)
 	}
 	return spec
+}
+
+func emptyIfNil(iids []int) []int {
+	if iids == nil {
+		return []int{}
+	}
+	return iids
 }
 
 // urnName returns "fan" for "urn:miot-spec-v2:service:fan:00007808:dmaker-p45:1".

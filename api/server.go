@@ -176,6 +176,10 @@ func (s *Server) device(w http.ResponseWriter, r *http.Request) {
 	respond(w, found, err)
 }
 
+// specCachePrefix has a version, so that a change to mihome.Spec does not leave
+// entries without the new fields in place for a whole SpecTTL.
+const specCachePrefix = "spec2:"
+
 // spec answers the device's specification, or null if it has none.
 func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
 	found, err := s.findDevice(r)
@@ -189,7 +193,7 @@ func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A specification hardly ever changes, so an old one beats none at all.
-	spec, err := cached(s, "spec:"+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
+	spec, err := cached(s, specCachePrefix+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
 		return s.service.FetchSpec(urn)
 	})
 	respond(w, spec, err)
