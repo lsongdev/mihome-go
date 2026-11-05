@@ -48,6 +48,7 @@
 .control-field .input { flex: 1; min-width: 0; }
 .control-action { flex-wrap: wrap; }
 .control-args { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; max-width: min(100%, 360px); }
+.control-wide > .control-args { max-width: none; }
 .control-args .input { flex: 1 1 120px; min-width: 0; width: auto; }
 .control-arg { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
 .control-actions { justify-content: flex-end; margin-top: 16px; display: flex; }
