@@ -42,8 +42,9 @@ func (p *Panel) Handler() http.Handler { return p.api }
 // Assets returns the browser UI; manifest.json is at its root.
 func (p *Panel) Assets() fs.FS { return UI }
 
-// csp only allows the panel's own scripts, styles, images and API calls.
-const csp = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; " +
+// csp only allows the panel's own scripts, styles, images and API calls. Camera
+// video plays from the blob: URL of a MediaSource.
+const csp = "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; " +
 	"connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 // Standalone serves the panel at /, the API at /api/ and an unauthenticated

@@ -161,6 +161,22 @@ func (ma *Client) Login(sid string) error {
 	return ma.login(sid)
 }
 
+// AccountToken returns the account's user id and pass token, logging in if there
+// are none yet. Other clients of the account can log in with them.
+func (ma *Client) AccountToken() (userID, passToken string, err error) {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	if err := ma.ensureToken(); err != nil {
+		return "", "", err
+	}
+	if ma.Token.PassToken == "" {
+		if err := ma.login(MIIO_SID); err != nil {
+			return "", "", err
+		}
+	}
+	return ma.Token.UserId, ma.Token.PassToken, nil
+}
+
 // login must be called with mu held.
 func (ma *Client) login(sid string) error {
 	err := ma.ensureToken()

@@ -4,6 +4,7 @@ import { Page, Notice, Loading, KV, Badge, toast, confirmDanger } from '../lib/u
 import { usePanel } from '../lib/panel.js';
 import { useApi, useCached, ApiNotice, OnlineStatus } from '../mi.js';
 import { DeviceControls } from '../controls.js';
+import { CameraView } from '../camera.js';
 
 const SPEC_URL = 'https://miot-spec.org/miot-spec-v2/instances?status=all';
 
@@ -30,6 +31,7 @@ export default function Device() {
         ['规格', spec.data?.name],
       ]} /></div>
     </section>
+    ${spec.data?.type === 'camera' ? html`<${CameraView} key=${path} path=${path} online=${d.online} />` : null}
     ${spec.data ? html`<${DeviceControls} key=${spec.data.urn} path=${path} spec=${spec.data} device=${d} />`
       : spec.error ? html`<section class="section"><${ApiNotice} error=${spec.error} /></section>`
       : spec.loading ? html`<${Loading} />`

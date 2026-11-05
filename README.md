@@ -56,6 +56,17 @@ specifications for `cache.spec_ttl` (30 days). Add `?refresh=1` to bypass the ca
 of `/api/homes`, `/api/speakers` and `/api/devices/{did}`. Property values, player
 status and conversations are always live.
 
+#### Camera video
+
+Device pages of cameras can play live video, using the packages of
+[go2rtc](https://github.com/AlexxIT/go2rtc) and the account's login, with nothing
+else to install or configure. `GET /api/devices/{did}/stream` answers fragmented
+MP4; viewers of a camera share one connection, which closes with the last of them.
+
+Getting the keys for a connection needs the internet, but the video itself comes
+over the LAN, so the service must be able to reach the camera. Many cameras send
+H.265, which plays only in browsers that can decode it.
+
 #### Realtime events
 
 Device changes arrive through Xiaomi's cloud MQTT broker, the same one its Home

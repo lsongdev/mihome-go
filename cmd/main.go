@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/lsongdev/mihome-go/api"
+	"github.com/lsongdev/mihome-go/camera"
 	"github.com/lsongdev/mihome-go/mihome"
 	"github.com/lsongdev/mihome-go/store"
 	"github.com/lsongdev/mihome-go/web"
@@ -84,6 +85,7 @@ func run() error {
 		DevicesTTL:          config.Cache.DevicesTTL,
 		SpecTTL:             config.Cache.SpecTTL,
 		EventsIncludeShared: config.Events.IncludeShared,
+		Camera:              camera.New(client.AccountToken),
 	}
 	if config.Events.OAuthClientID != "" {
 		options.OpenEvents = func(ctx context.Context, hooks mihome.EventOptions) (api.EventStream, error) {

@@ -75,3 +75,8 @@
   .event-row { grid-template-columns: minmax(0, 1fr) auto; }
   .event-value { grid-column: 1 / -1; }
 }
+
+/* Camera */
+.camera { display: grid; gap: 12px; }
+.camera-video { width: 100%; max-height: 70vh; background: #000; border-radius: 6px; }
+.camera-actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; }

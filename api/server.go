@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +51,14 @@ type Options struct {
 	OpenEvents func(context.Context, mihome.EventOptions) (EventStream, error)
 	// EventsIncludeShared also follows the homes shared with the account.
 	EventsIncludeShared bool
+	// Camera streams video. Without it there is no video.
+	Camera Camera
+}
+
+// Camera writes a camera's live video as fragmented MP4 until ctx ends or the
+// stream fails. It calls ready once, with the content type, before any output.
+type Camera interface {
+	Stream(ctx context.Context, did string, audio bool, w io.Writer, ready func(contentType string)) error
 }
 
 type Server struct {
@@ -70,6 +80,7 @@ func New(service Service, options Options) *Server {
 	s.mux.HandleFunc("GET /homes", s.homes)
 	s.mux.HandleFunc("GET /devices/{did}", s.device)
 	s.mux.HandleFunc("GET /devices/{did}/spec", s.spec)
+	s.mux.HandleFunc("GET /devices/{did}/stream", s.stream)
 	s.mux.HandleFunc("GET /devices/{did}/props", s.getProps)
 	s.mux.HandleFunc("PUT /devices/{did}/props", s.setProp)
 	s.mux.HandleFunc("POST /devices/{did}/actions", s.action)
@@ -174,6 +185,37 @@ func (s *Server) findDevice(r *http.Request) (deviceInHome, error) {
 func (s *Server) device(w http.ResponseWriter, r *http.Request) {
 	found, err := s.findDevice(r)
 	respond(w, found, err)
+}
+
+// stream answers a camera's live video until the client disconnects. Add
+// ?audio=0 for a stream without audio, for browsers that can't play its codec.
+func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
+	found, err := s.findDevice(r)
+	if err != nil {
+		writeUpstreamError(w, err)
+		return
+	}
+	if s.options.Camera == nil || !strings.Contains(found.Device.Spec, ":device:camera:") {
+		writeError(w, http.StatusNotFound, errors.New("这台设备没有视频"))
+		return
+	}
+	started := false
+	err = s.options.Camera.Stream(r.Context(), found.Device.Did, r.URL.Query().Get("audio") != "0", w, func(contentType string) {
+		started = true
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	})
+	switch {
+	case err == nil || r.Context().Err() != nil:
+	case started:
+		log.Printf("camera %s: %v", found.Device.Did, err)
+	default:
+		writeUpstreamError(w, err)
+	}
 }
 
 // specCachePrefix has a version, so that a change to mihome.Spec does not leave
