@@ -9,19 +9,18 @@ import { CameraView } from '../camera.js';
 const SPEC_URL = 'https://miot-spec.org/miot-spec-v2/instances?status=all';
 
 export default function Device() {
-  const { params, href } = usePanel();
+  const { params } = usePanel();
   const path = `/devices/${encodeURIComponent(params.did)}`;
   const resource = useCached(path);
   const spec = useApi(`${path}/spec`);
-  const back = { href: href('/'), label: '设备' };
+  const actions = html`<button class="button" disabled=${resource.loading} onClick=${resource.refresh}>刷新</button>`;
   if (resource.data === undefined) {
-    return html`<${Page} title="设备" back=${back}>
+    return html`<${Page} title="设备" actions=${actions}>
       ${resource.error ? html`<${ApiNotice} error=${resource.error} />` : html`<${Loading} />`}
     <//>`;
   }
   const { device: d, home, shared } = resource.data;
-  return html`<${Page} title=${d.name} back=${back} subtitle=${html`<${OnlineStatus} online=${d.online} />`}
-      actions=${html`<button class="button" disabled=${resource.loading} onClick=${resource.refresh}>刷新</button>`}>
+  return html`<${Page} title=${d.name} subtitle=${html`<${OnlineStatus} online=${d.online} />`} actions=${actions}>
     <section class="section">
       <h2>设备信息</h2>
       <div class="card"><${KV} items=${[

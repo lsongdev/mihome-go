@@ -130,7 +130,8 @@ function Property({ property: p, entry, disabled, write }) {
   const [attempt, setAttempt] = useState(0);
   const commit = async value => { if (!await write(value)) setAttempt(n => n + 1); };
   const value = entry && !entry.code ? entry.value : undefined;
-  return html`<div class="control">
+  const wide = writable(p) && p.format !== 'bool' && !p.options?.length;
+  return html`<div class=${wide ? 'control control-wide' : 'control'}>
     <span class="control-label">${p.name}</span>
     ${writable(p)
       ? html`<${Input} key=${attempt} property=${p} value=${value} disabled=${disabled} commit=${commit} />`
@@ -217,12 +218,13 @@ function Action({ service, action, disabled, run }) {
     setBusy(true);
     try { await run(args); } finally { setBusy(false); }
   };
-  return html`<form class="control control-action" onSubmit=${submit}>
+  const details = params.length > 0 || action.out.length > 0;
+  return html`<form class=${details ? 'control control-action control-wide' : 'control control-action'} onSubmit=${submit}>
     <span class="control-label">${action.name}</span>
-    <span class="control-args">
+    ${details ? html`<span class="control-args">
       ${params.map((p, i) => html`<${Argument} key=${p.iid} property=${p} value=${args[i]} set=${v => set(i, v)} />`)}
       ${action.out.length ? html`<span class="muted">返回：${propertyNames(service, action.out)}</span>` : null}
-    </span>
+    </span>` : null}
     <button class="button button-small" disabled=${disabled || busy || unknown}
       title=${unknown ? '规格中缺少参数定义，请用高级调试' : undefined}>执行</button>
   </form>`;
