@@ -219,7 +219,7 @@ function Action({ service, action, disabled, run }) {
     try { await run(args); } finally { setBusy(false); }
   };
   const details = params.length > 0 || action.out.length > 0;
-  return html`<form class=${details ? 'control control-action control-wide' : 'control control-action'} onSubmit=${submit}>
+  return html`<form class="control control-action" onSubmit=${submit}>
     <span class="control-label">${action.name}</span>
     ${details ? html`<span class="control-args">
       ${params.map((p, i) => html`<${Argument} key=${p.iid} property=${p} value=${args[i]} set=${v => set(i, v)} />`)}
