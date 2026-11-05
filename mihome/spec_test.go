@@ -1,4 +1,4 @@
-package miservice
+package mihome
 
 import (
 	"net/http"

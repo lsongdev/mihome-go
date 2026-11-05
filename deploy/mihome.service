@@ -10,7 +10,7 @@ RequiresMountsFor=/data
 [Service]
 User=lsong
 Group=lsong
-ExecStart=/data/miservice/miservice -d /data/miservice
+ExecStart=/data/mihome/mihome -d /data/mihome
 Restart=on-failure
 RestartSec=10
 MemoryMax=256M
@@ -20,7 +20,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/data/miservice
+ReadWritePaths=/data/mihome
 
 [Install]
 WantedBy=multi-user.target

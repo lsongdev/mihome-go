@@ -1,5 +1,5 @@
 {
-  "name": "miservice-ui",
+  "name": "mihome-ui",
   "private": true,
   "description": "Browser dependencies embedded in the Go binary. Run make deps to install from the lockfile; node_modules is not tracked.",
   "dependencies": {

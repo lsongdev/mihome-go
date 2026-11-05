@@ -27,7 +27,7 @@ func TestManifestFollowsContract(t *testing.T) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Fatal(err)
 	}
-	if m.Contract != 1 || m.ID != "miservice" || m.Title == "" {
+	if m.Contract != 1 || m.ID != "mihome" || m.Title == "" {
 		t.Fatalf("manifest = %+v", m)
 	}
 	for _, name := range append([]string{m.Entry, "index.html"}, m.Styles...) {

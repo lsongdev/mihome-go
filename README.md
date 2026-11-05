@@ -1,4 +1,4 @@
-# XiaoMi Cloud Service
+# mihome-go
 
 ```go
 package main
@@ -7,11 +7,11 @@ import (
   "log"
   "os"
 
-  "github.com/lsongdev/miservice-go/miservice"
+  "github.com/lsongdev/mihome-go/mihome"
 )
 
 func main() {
-  client := miservice.NewClient(
+  client := mihome.NewClient(
     os.Getenv("MI_USERNAME"),
     os.Getenv("MI_PASSWORD"),
   )
@@ -27,7 +27,7 @@ once, to install the browser dependencies that Go embeds in the binary.
 ```sh
 make deps
 go run ./cmd              # data directory: the current directory
-go run ./cmd -d /var/lib/miservice
+go run ./cmd -d /var/lib/mihome
 ```
 
 The data directory holds everything the service keeps:
@@ -36,10 +36,10 @@ The data directory holds everything the service keeps:
 | --- | --- |
 | `config.yaml` | Configuration, required. [`config.yaml`](./config.yaml) is a sample |
 | `.env` | Optional environment variables, such as the secrets below |
-| `miservice.db` | SQLite cache. It can be deleted at any time |
+| `mihome.db` | SQLite cache. It can be deleted at any time |
 | `mi.token` | Login state: device id and tokens. Deleting it means a new login, which may ask for a security verification |
 
-[`deploy/miservice.service`](./deploy/miservice.service) runs it as a system service.
+[`deploy/mihome.service`](./deploy/mihome.service) runs it as a system service.
 
 Set `MI_USERNAME`, `MI_PASSWORD` and optionally `MI_API_TOKEN` in `.env` or the
 environment. With `MI_API_TOKEN`, scripts send `Authorization: Bearer <token>` and
@@ -75,7 +75,7 @@ status and conversations are always live.
 The API never returns the local control tokens of devices, nor their MAC or IP
 addresses. Errors from the Xiaomi cloud are answered with status 502.
 
-*[[repo]/miservice/miio.go](./miservice/miio.go)*
+*[[repo]/mihome/miio.go](./mihome/miio.go)*
 
 #### MiioRequest
 
@@ -109,7 +109,7 @@ for _, home := range homes {
 #### HomeDeviceList
 
 ```go
-devices, err := client.HomeDeviceList(&miservice.DeviceListFilter{
+devices, err := client.HomeDeviceList(&mihome.DeviceListFilter{
   ShowVirtualModel: true,
   ShowHuamiDevices: 1,
 })
@@ -121,7 +121,7 @@ for _, device := range devices {
 }
 ```
 
-*[[repo]/miservice/miot.go](./miservice/miot.go)*
+*[[repo]/mihome/miot.go](./mihome/miot.go)*
 
 + MiotGetProps
 + MiotSetProps
@@ -149,7 +149,7 @@ func (c *Client) PlayMusic(did string) (H, error) {
 }
 ```
 
-*[[repo]/miservice/mina.go](./miservice/mina.go)*
+*[[repo]/mihome/mina.go](./mihome/mina.go)*
 
 + MinaRequest
 + [ListMinaDevices](#listminadevices)

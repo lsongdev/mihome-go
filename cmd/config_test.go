@@ -49,7 +49,7 @@ func TestDefaultPathsAreInTheDataDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.Database.Path != filepath.Join(dir, "miservice.db") || config.Account.TokenPath != filepath.Join(dir, "mi.token") {
+	if config.Database.Path != filepath.Join(dir, "mihome.db") || config.Account.TokenPath != filepath.Join(dir, "mi.token") {
 		t.Fatalf("config = %+v", config)
 	}
 }

@@ -17,10 +17,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lsongdev/miservice-go/api"
-	"github.com/lsongdev/miservice-go/miservice"
-	"github.com/lsongdev/miservice-go/store"
-	"github.com/lsongdev/miservice-go/web"
+	"github.com/lsongdev/mihome-go/api"
+	"github.com/lsongdev/mihome-go/mihome"
+	"github.com/lsongdev/mihome-go/store"
+	"github.com/lsongdev/mihome-go/web"
 )
 
 // loadEnv sets the variables of a .env file, if there is one. Variables already
@@ -74,7 +74,7 @@ func run() error {
 		return err
 	}
 	defer db.Close()
-	client := miservice.NewClient(config.username(), config.password())
+	client := mihome.NewClient(config.username(), config.password())
 	client.TokenPath = config.Account.TokenPath
 
 	handler := api.New(client, api.Options{

@@ -1,4 +1,4 @@
-// MiService UI conventions on top of the shared components.
+// Mi Home UI conventions on top of the shared components.
 import { html, useRef } from './lib/html.js';
 import { useResource } from './lib/hooks.js';
 import { usePanel } from './lib/panel.js';

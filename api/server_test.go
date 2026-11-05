@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lsongdev/miservice-go/miservice"
+	"github.com/lsongdev/mihome-go/mihome"
 )
 
 // fake embeds Service so a test only implements what it needs; anything else
@@ -17,7 +17,7 @@ type fake struct {
 	Service
 	err    error
 	called []string
-	iid    miservice.Iid
+	iid    mihome.Iid
 	value  any
 	in     []any
 	result *fakeResult
@@ -27,39 +27,39 @@ type fake struct {
 
 type fakeResult struct {
 	prop   any
-	action miservice.H
+	action mihome.H
 }
 
-func (f *fake) HomeList() ([]miservice.Home, error) {
+func (f *fake) HomeList() ([]mihome.Home, error) {
 	f.homes++
-	return []miservice.Home{{ID: "1", Name: "mine"}, {ID: "2", Name: "theirs", Shared: true}}, f.err
+	return []mihome.Home{{ID: "1", Name: "mine"}, {ID: "2", Name: "theirs", Shared: true}}, f.err
 }
 
-func (f *fake) HomeDevices(home miservice.Home) ([]miservice.DeviceInfo, error) {
+func (f *fake) HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error) {
 	if home.ID == "2" {
 		return nil, nil
 	}
-	return []miservice.DeviceInfo{
+	return []mihome.DeviceInfo{
 		{Did: "d1", Name: "lamp", Model: "m", Token: "secret-token", IsOnline: true, SpecType: "urn:lamp"},
 		{Did: "d2", Name: "band", Model: "n"},
 	}, nil
 }
 
-func (f *fake) FetchSpec(urn string) (*miservice.Spec, error) {
+func (f *fake) FetchSpec(urn string) (*mihome.Spec, error) {
 	f.specs++
-	return &miservice.Spec{URN: urn, Name: "lamp spec"}, f.err
+	return &mihome.Spec{URN: urn, Name: "lamp spec"}, f.err
 }
 
-func (f *fake) ListMinaDevices(int) ([]miservice.DeviceData, error) {
-	return []miservice.DeviceData{{DeviceID: "s1", MiotDID: "9", Name: "box", Presence: "online", Mac: "secret-mac"}}, f.err
+func (f *fake) ListMinaDevices(int) ([]mihome.DeviceData, error) {
+	return []mihome.DeviceData{{DeviceID: "s1", MiotDID: "9", Name: "box", Presence: "online", Mac: "secret-mac"}}, f.err
 }
 
-func (f *fake) MiotGetProps(_ string, iids []miservice.Iid) ([]any, error) {
+func (f *fake) MiotGetProps(_ string, iids []mihome.Iid) ([]any, error) {
 	f.iid = iids[0]
 	return []any{map[string]any{"value": 1}}, f.err
 }
 
-func (f *fake) MiotSetProp(_ string, iid miservice.Iid, value any) (any, error) {
+func (f *fake) MiotSetProp(_ string, iid mihome.Iid, value any) (any, error) {
 	f.iid, f.value = iid, value
 	if f.result != nil {
 		return f.result.prop, f.err
@@ -67,26 +67,26 @@ func (f *fake) MiotSetProp(_ string, iid miservice.Iid, value any) (any, error) 
 	return nil, f.err
 }
 
-func (f *fake) MiotAction(_ string, _ []int, in []any) (miservice.H, error) {
+func (f *fake) MiotAction(_ string, _ []int, in []any) (mihome.H, error) {
 	f.in = in
 	if f.result != nil {
 		return f.result.action, f.err
 	}
-	return miservice.H{}, f.err
+	return mihome.H{}, f.err
 }
 
-func (f *fake) GetConversationRecords(string, int) ([]miservice.ConversationRecord, error) {
+func (f *fake) GetConversationRecords(string, int) ([]mihome.ConversationRecord, error) {
 	return nil, f.err
 }
 
-func (f *fake) control(name string) (miservice.H, error) {
+func (f *fake) control(name string) (mihome.H, error) {
 	f.called = append(f.called, name)
-	return miservice.H{}, f.err
+	return mihome.H{}, f.err
 }
 
-func (f *fake) PlayerPause(string) (miservice.H, error)          { return f.control("pause") }
-func (f *fake) PlayerSetVolume(string, int) (miservice.H, error) { return f.control("volume") }
-func (f *fake) TextToSpeech(string, string) (miservice.H, error) { return f.control("tts") }
+func (f *fake) PlayerPause(string) (mihome.H, error)          { return f.control("pause") }
+func (f *fake) PlayerSetVolume(string, int) (mihome.H, error) { return f.control("volume") }
+func (f *fake) TextToSpeech(string, string) (mihome.H, error) { return f.control("tts") }
 
 func call(s http.Handler, method, target, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -129,7 +129,7 @@ func TestDeviceLookup(t *testing.T) {
 func TestProps(t *testing.T) {
 	f := &fake{}
 	s := New(f, Options{})
-	if w := call(s, "GET", "/devices/d1/props?iid=2.1", ""); w.Code != 200 || f.iid != (miservice.Iid{Siid: 2, Piid: 1}) {
+	if w := call(s, "GET", "/devices/d1/props?iid=2.1", ""); w.Code != 200 || f.iid != (mihome.Iid{Siid: 2, Piid: 1}) {
 		t.Fatalf("%d %s %+v", w.Code, w.Body, f.iid)
 	}
 	for _, target := range []string{"/devices/d1/props", "/devices/d1/props?iid=2", "/devices/d1/props?iid=a.b"} {
@@ -147,8 +147,8 @@ func TestProps(t *testing.T) {
 
 func TestDeviceRefusalsAreErrors(t *testing.T) {
 	for result, code := range map[*fakeResult]int{
-		{[]any{map[string]any{"code": float64(-704030013)}}, miservice.H{"code": float64(-1)}}: 502,
-		{[]any{map[string]any{"code": float64(0)}}, miservice.H{"code": float64(1)}}:           200,
+		{[]any{map[string]any{"code": float64(-704030013)}}, mihome.H{"code": float64(-1)}}: 502,
+		{[]any{map[string]any{"code": float64(0)}}, mihome.H{"code": float64(1)}}:           200,
 	} {
 		s := New(&fake{result: result}, Options{})
 		if w := call(s, "PUT", "/devices/d1/props", `{"siid":2,"piid":1,"value":true}`); w.Code != code {
@@ -208,8 +208,8 @@ func TestUpstreamErrors(t *testing.T) {
 		want string
 	}{
 		{errors.New("boom"), 502, `"error":"boom"`},
-		{&miservice.VerificationError{URL: "https://verify.example"}, 502, `"code":"verification_required"`},
-		{miservice.ErrDeviceNotFound, 404, "device not found"},
+		{&mihome.VerificationError{URL: "https://verify.example"}, 502, `"code":"verification_required"`},
+		{mihome.ErrDeviceNotFound, 404, "device not found"},
 	}
 	for _, c := range cases {
 		w := call(New(&fake{err: c.err}, Options{}), "GET", "/speakers/s1/conversations", "")
@@ -267,7 +267,7 @@ func TestExpiredHomesAreNotServedWhenUpstreamFails(t *testing.T) {
 	f, cache := &fake{}, newMemoryCache()
 	s := New(f, Options{Cache: cache, DevicesTTL: time.Minute})
 	call(s, "GET", "/homes", "")
-	cache.age, f.err = 2*time.Minute, &miservice.VerificationError{URL: "https://verify.example"}
+	cache.age, f.err = 2*time.Minute, &mihome.VerificationError{URL: "https://verify.example"}
 	if w := call(s, "GET", "/homes", ""); w.Code != 502 || !strings.Contains(w.Body.String(), "verification_required") {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -295,7 +295,7 @@ func TestSpecIsCached(t *testing.T) {
 
 type specFailure struct{ *fake }
 
-func (f *specFailure) FetchSpec(string) (*miservice.Spec, error) { return nil, errors.New("down") }
+func (f *specFailure) FetchSpec(string) (*mihome.Spec, error) { return nil, errors.New("down") }
 
 func TestSpecOfDeviceWithoutOne(t *testing.T) {
 	f := &fake{}

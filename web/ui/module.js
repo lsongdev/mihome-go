@@ -1,4 +1,4 @@
-// MiService panel entry point (panel module contract, version 1). The host is a
+// Mi Home panel entry point (panel module contract, version 1). The host is a
 // panel shell, or standalone.js on its own.
 import { createMount } from './lib/mount.js';
 

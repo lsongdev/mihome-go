@@ -1,4 +1,4 @@
-module github.com/lsongdev/miservice-go
+module github.com/lsongdev/mihome-go
 
 go 1.25.0
 

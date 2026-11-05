@@ -43,7 +43,7 @@ func defaultConfig() Config {
 	c.Account.TokenPath = "mi.token"
 	c.API.Listen = "127.0.0.1:8080"
 	c.API.TokenEnv = "MI_API_TOKEN"
-	c.Database.Path = "miservice.db"
+	c.Database.Path = "mihome.db"
 	c.Cache.DevicesTTL = time.Minute
 	c.Cache.SpecTTL = 30 * 24 * time.Hour
 	return c

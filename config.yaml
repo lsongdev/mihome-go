@@ -14,7 +14,7 @@ api:
   # MI_API_TOKEN is required for any non-loopback listen address.
 
 database:
-  path: miservice.db
+  path: mihome.db
 
 cache:
   # Homes, devices and speakers. The refresh buttons bypass this.

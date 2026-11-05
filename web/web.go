@@ -70,7 +70,7 @@ func (p *Panel) Standalone(token string) http.Handler {
 			return
 		}
 		if token != "" && !authorized(r, token) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="miservice", charset="UTF-8"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="mihome", charset="UTF-8"`)
 			http.Error(w, "unauthorized: use the API token as the password", http.StatusUnauthorized)
 			return
 		}

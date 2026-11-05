@@ -1,4 +1,4 @@
-/* MiService styles; the design system is in style.css. */
+/* Mi Home styles; the design system is in style.css. */
 .page-actions { align-items: center; }
 .toolbar { margin-bottom: 20px; }
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }

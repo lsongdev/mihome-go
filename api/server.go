@@ -1,4 +1,4 @@
-// Package api is the JSON API over miservice, with routes relative to wherever
+// Package api is the JSON API over mihome, with routes relative to wherever
 // it is mounted (package web mounts it at /api/). Authentication is the
 // mounting handler's job.
 package api
@@ -12,26 +12,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lsongdev/miservice-go/miservice"
+	"github.com/lsongdev/mihome-go/mihome"
 	"golang.org/x/sync/singleflight"
 )
 
-// Service is the part of miservice.Client the API uses.
+// Service is the part of mihome.Client the API uses.
 type Service interface {
-	HomeList() ([]miservice.Home, error)
-	HomeDevices(home miservice.Home) ([]miservice.DeviceInfo, error)
-	FetchSpec(urn string) (*miservice.Spec, error)
-	MiotGetProps(did string, iids []miservice.Iid) ([]any, error)
-	MiotSetProp(did string, iid miservice.Iid, value any) (any, error)
-	MiotAction(did string, iid []int, in []any) (miservice.H, error)
-	ListMinaDevices(master int) ([]miservice.DeviceData, error)
-	GetConversationRecords(did string, limit int) ([]miservice.ConversationRecord, error)
-	TextToSpeech(deviceId, text string) (miservice.H, error)
-	PlayerSetVolume(deviceId string, volume int) (miservice.H, error)
+	HomeList() ([]mihome.Home, error)
+	HomeDevices(home mihome.Home) ([]mihome.DeviceInfo, error)
+	FetchSpec(urn string) (*mihome.Spec, error)
+	MiotGetProps(did string, iids []mihome.Iid) ([]any, error)
+	MiotSetProp(did string, iid mihome.Iid, value any) (any, error)
+	MiotAction(did string, iid []int, in []any) (mihome.H, error)
+	ListMinaDevices(master int) ([]mihome.DeviceData, error)
+	GetConversationRecords(did string, limit int) ([]mihome.ConversationRecord, error)
+	TextToSpeech(deviceId, text string) (mihome.H, error)
+	PlayerSetVolume(deviceId string, volume int) (mihome.H, error)
 	PlayerGetStatus(deviceId string) (any, error)
-	PlayerPlay(deviceId string) (miservice.H, error)
-	PlayerPause(deviceId string) (miservice.H, error)
-	PlayerStop(deviceId string) (miservice.H, error)
+	PlayerPlay(deviceId string) (mihome.H, error)
+	PlayerPause(deviceId string) (mihome.H, error)
+	PlayerStop(deviceId string) (mihome.H, error)
 }
 
 // Options configures a Server. Without a Cache every request goes upstream.
@@ -97,11 +97,11 @@ type Speaker struct {
 	Online   bool   `json:"online"`
 }
 
-func newDevice(d miservice.DeviceInfo) Device {
+func newDevice(d mihome.DeviceInfo) Device {
 	return Device{Did: d.Did, Name: d.Name, Model: d.Model, Online: d.IsOnline, Spec: d.SpecType}
 }
 
-func newSpeaker(d miservice.DeviceData) Speaker {
+func newSpeaker(d mihome.DeviceData) Speaker {
 	return Speaker{ID: d.DeviceID, MiotDID: d.MiotDID, Name: d.Name, Alias: d.Alias, Hardware: d.Hardware, Online: d.Presence == "online"}
 }
 
@@ -153,7 +153,7 @@ func (s *Server) findDevice(r *http.Request) (deviceInHome, error) {
 			}
 		}
 	}
-	return deviceInHome{}, miservice.ErrDeviceNotFound
+	return deviceInHome{}, mihome.ErrDeviceNotFound
 }
 
 func (s *Server) device(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +174,7 @@ func (s *Server) spec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A specification hardly ever changes, so an old one beats none at all.
-	spec, err := cached(s, "spec:"+urn, s.options.SpecTTL, false, true, func() (*miservice.Spec, error) {
+	spec, err := cached(s, "spec:"+urn, s.options.SpecTTL, false, true, func() (*mihome.Spec, error) {
 		return s.service.FetchSpec(urn)
 	})
 	respond(w, spec, err)
@@ -187,7 +187,7 @@ func (s *Server) getProps(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("iid is required, as <siid>.<piid>"))
 		return
 	}
-	iids := make([]miservice.Iid, 0, len(values))
+	iids := make([]mihome.Iid, 0, len(values))
 	for _, value := range values {
 		iid, err := parseIid(value)
 		if err != nil {
@@ -200,14 +200,14 @@ func (s *Server) getProps(w http.ResponseWriter, r *http.Request) {
 	respond(w, props, err)
 }
 
-func parseIid(value string) (miservice.Iid, error) {
+func parseIid(value string) (mihome.Iid, error) {
 	service, property, found := strings.Cut(value, ".")
 	siid, err1 := strconv.Atoi(service)
 	piid, err2 := strconv.Atoi(property)
 	if !found || err1 != nil || err2 != nil {
-		return miservice.Iid{}, fmt.Errorf("invalid iid %q, want <siid>.<piid>", value)
+		return mihome.Iid{}, fmt.Errorf("invalid iid %q, want <siid>.<piid>", value)
 	}
-	return miservice.Iid{Siid: siid, Piid: piid}, nil
+	return mihome.Iid{Siid: siid, Piid: piid}, nil
 }
 
 func (s *Server) setProp(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func (s *Server) setProp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("value is required"))
 		return
 	}
-	result, err := s.service.MiotSetProp(r.PathValue("did"), miservice.Iid{Siid: input.Siid, Piid: input.Piid}, input.Value)
+	result, err := s.service.MiotSetProp(r.PathValue("did"), mihome.Iid{Siid: input.Siid, Piid: input.Piid}, input.Value)
 	if err == nil {
 		err = deviceError(result)
 	}
@@ -280,7 +280,7 @@ func (s *Server) speaker(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeUpstreamError(w, miservice.ErrDeviceNotFound)
+	writeUpstreamError(w, mihome.ErrDeviceNotFound)
 }
 
 func (s *Server) conversations(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +299,7 @@ func (s *Server) conversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if records == nil {
-		records = []miservice.ConversationRecord{}
+		records = []mihome.ConversationRecord{}
 	}
 	writeJSON(w, http.StatusOK, records)
 }
@@ -316,7 +316,7 @@ func (s *Server) playerControl(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	var control func(string) (miservice.H, error)
+	var control func(string) (mihome.H, error)
 	switch input.Action {
 	case "play":
 		control = s.service.PlayerPlay
@@ -402,7 +402,7 @@ func respond(w http.ResponseWriter, value any, err error) {
 // writeUpstreamError reports a failure of the Xiaomi cloud as 502, never 401:
 // 401 belongs to the authentication of this API.
 func writeUpstreamError(w http.ResponseWriter, err error) {
-	var verification *miservice.VerificationError
+	var verification *mihome.VerificationError
 	switch {
 	case errors.As(err, &verification):
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": map[string]any{
@@ -410,7 +410,7 @@ func writeUpstreamError(w http.ResponseWriter, err error) {
 			"message": "小米账号需要安全验证",
 			"fields":  map[string]string{"url": verification.URL},
 		}})
-	case errors.Is(err, miservice.ErrDeviceNotFound):
+	case errors.Is(err, mihome.ErrDeviceNotFound):
 		writeError(w, http.StatusNotFound, err)
 	default:
 		writeError(w, http.StatusBadGateway, err)

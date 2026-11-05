@@ -1,6 +1,6 @@
 {
   "contract": 1,
-  "id": "miservice",
+  "id": "mihome",
   "title": "Mi Home",
   "icon": "M",
   "entry": "module.js",
