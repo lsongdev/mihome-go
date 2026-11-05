@@ -12,13 +12,11 @@ import (
 	"time"
 )
 
-var r = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 func getRandom(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	randomStr := make([]byte, length)
 	for i := range randomStr {
-		randomStr[i] = charset[r.Intn(len(charset))]
+		randomStr[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(randomStr)
 }

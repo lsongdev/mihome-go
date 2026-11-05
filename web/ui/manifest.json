@@ -1,0 +1,13 @@
+{
+  "contract": 1,
+  "id": "miservice",
+  "title": "Mi Home",
+  "icon": "M",
+  "entry": "module.js",
+  "styles": ["stylesheets.css", "style.css", "mi.css"],
+  "home": "/",
+  "nav": [
+    { "path": "/", "title": "设备", "icon": "◉" },
+    { "path": "/speakers", "title": "音箱", "icon": "♪" }
+  ]
+}

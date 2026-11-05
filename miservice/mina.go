@@ -2,6 +2,7 @@ package miservice
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// ErrDeviceNotFound means the account has no speaker with the given id.
+var ErrDeviceNotFound = errors.New("device not found")
 
 func (c *Client) MinaRequest(path string, data url.Values, out H) error {
 	requestId := "app_ios_" + getRandom(30)
@@ -76,7 +80,7 @@ func (c *Client) ListMinaDevices(master int) (devices []DeviceData, err error) {
 	if err != nil {
 		return nil, err
 	}
-	deviceList := res["data"].([]any)
+	deviceList, _ := res["data"].([]any)
 	devices = make([]DeviceData, len(deviceList))
 	for i, item := range deviceList {
 		ja, _ := json.Marshal(item)
@@ -85,19 +89,18 @@ func (c *Client) ListMinaDevices(master int) (devices []DeviceData, err error) {
 	return devices, nil
 }
 
+// FindDeviceById finds a speaker by its MIoT DID or its device id.
 func (c *Client) FindDeviceById(did string) (device DeviceData, err error) {
 	devices, err := c.ListMinaDevices(1)
 	if err != nil {
 		return
 	}
 	for _, d := range devices {
-
-		if d.MiotDID == did {
-			device = d
-			return
+		if d.MiotDID == did || d.DeviceID == did {
+			return d, nil
 		}
 	}
-	return
+	return device, ErrDeviceNotFound
 }
 
 type ConversationRecord struct {
@@ -114,23 +117,26 @@ func (c *Client) GetConversationRecords(did string, limit int) (records []Conver
 	}
 	requestId := uuid.New().String()
 	url := fmt.Sprintf("https://userprofile.mina.mi.com/device_profile/v2/conversation?limit=%d&requestId=%s&source=dialogu&hardware=%s", limit, requestId, device.Hardware)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return
+	headers := http.Header{
+		"User-Agent": {UA},
+		"Referer":    {"https://userprofile.mina.mi.com/dialogue-note/index.html"},
 	}
-	req.Header.Add("User-Agent", UA)
-	req.Header.Add("Referer", "ttps://userprofile.mina.mi.com/dialogue-note/index.html")
-	req.Header.Add("Cookie", fmt.Sprintf(`userId=%s; serviceToken=%s; deviceId=%s`, c.Token.UserId, c.Token.Sids["micoapi"].ServiceToken, device.DeviceID))
+	req := c.NewRequest("micoapi", url, nil, nil, headers)
+	req.AddCookie(&http.Cookie{Name: "deviceId", Value: device.DeviceID})
 	res, err := c.Client.Do(req) // maybe use c.Request()
 	if err != nil {
 		return
 	}
+	defer res.Body.Close()
 	var m struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    string `json:"data"`
 	}
 	err = json.NewDecoder(res.Body).Decode(&m)
+	if err != nil {
+		return nil, fmt.Errorf("解析响应失败 (HTTP %d): %w", res.StatusCode, err)
+	}
 	if m.Code != 0 {
 		err = fmt.Errorf("error: %d %s", m.Code, m.Message)
 		return
@@ -138,9 +144,10 @@ func (c *Client) GetConversationRecords(did string, limit int) (records []Conver
 	var k struct {
 		Records []ConversationRecord `json:"records"`
 	}
-	err = json.Unmarshal([]byte(m.Data), &k)
-	records = k.Records
-	return
+	if err = json.Unmarshal([]byte(m.Data), &k); err != nil {
+		return nil, err
+	}
+	return k.Records, nil
 }
 
 func (c *Client) RemoteUbusCall(deviceId, cmd string, message H, res H) error {

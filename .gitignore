@@ -1,0 +1,8 @@
+
+
+.env
+node_modules/
+/mi.token
+/miservice.db
+/miservice.db-shm
+/miservice.db-wal

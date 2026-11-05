@@ -1,0 +1,22 @@
+# Sample configuration. Run with: go run ./cmd -d <data directory>
+# That directory holds this file, the database and the login state. Relative
+# paths below are resolved against it.
+#
+# Keep secrets out of this file: put them in <data directory>/.env or the
+# environment. The variable names can be changed with username_env, password_env
+# and token_env; the plain username, password and token settings also work.
+account:
+  # MI_USERNAME and MI_PASSWORD
+  token_path: mi.token
+
+api:
+  listen: 127.0.0.1:8080
+  # MI_API_TOKEN is required for any non-loopback listen address.
+
+database:
+  path: miservice.db
+
+cache:
+  # Homes, devices and speakers. The refresh buttons bypass this.
+  devices_ttl: 1m
+  spec_ttl: 720h

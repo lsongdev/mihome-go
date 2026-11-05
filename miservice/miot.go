@@ -14,20 +14,35 @@ type Iid struct {
 	Piid int `json:"piid"`
 }
 
+// miotPropsLimit is how many properties MiotGetProps asks for in one request.
+const miotPropsLimit = 30
+
+// MiotGetProps reads properties, in as many requests as needed. Each result has
+// its own code: a device can fail on some properties only.
 func (s *Client) MiotGetProps(did string, iids []Iid) ([]any, error) {
-	params := make([]H, len(iids))
-	for i, iid := range iids {
-		params[i] = H{
-			"did":  did,
-			"siid": iid.Siid,
-			"piid": iid.Piid,
+	results := make([]any, 0, len(iids))
+	for len(iids) > 0 {
+		n := min(len(iids), miotPropsLimit)
+		params := make([]H, n)
+		for i, iid := range iids[:n] {
+			params[i] = H{
+				"did":  did,
+				"siid": iid.Siid,
+				"piid": iid.Piid,
+			}
 		}
+		resp, err := s.MiotRequest("prop/get", params)
+		if err != nil {
+			return nil, err
+		}
+		page, ok := resp.([]any)
+		if !ok {
+			return nil, fmt.Errorf("unexpected prop/get result: %v", resp)
+		}
+		results = append(results, page...)
+		iids = iids[n:]
 	}
-	resp, err := s.MiotRequest("prop/get", params)
-	if err != nil {
-		return nil, err
-	}
-	return resp.([]any), nil
+	return results, nil
 }
 
 func (s *Client) MiotSetProps(did string, props map[Iid]any) (any, error) {
@@ -74,7 +89,11 @@ func (s *Client) MiotAction(did string, iid []int, in []any) (H, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(H), nil
+	output, ok := result.(H)
+	if !ok {
+		return nil, fmt.Errorf("unexpected action result: %v", result)
+	}
+	return output, nil
 }
 
 func (c *Client) Speak(did, text string) (H, error) {

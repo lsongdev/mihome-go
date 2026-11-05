@@ -1,0 +1,26 @@
+# Runs the web panel as a system service. Change User and the paths to suit. The
+# data directory needs config.yaml, and an API token if the panel listens on
+# anything other than loopback, since it controls real devices.
+[Unit]
+Description=Mi Home panel
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/data
+
+[Service]
+User=lsong
+Group=lsong
+ExecStart=/data/miservice/miservice -d /data/miservice
+Restart=on-failure
+RestartSec=10
+MemoryMax=256M
+Nice=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/miservice
+
+[Install]
+WantedBy=multi-user.target

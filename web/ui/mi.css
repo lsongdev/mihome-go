@@ -1,0 +1,66 @@
+/* MiService styles; the design system is in style.css. */
+.page-actions { align-items: center; }
+.toolbar { margin-bottom: 20px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segmented .button { border: 0; border-radius: 0; }
+.segmented .button.active { background: var(--primary-soft); color: var(--primary); }
+
+.home-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.device-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.device-grid > .card { margin-top: 0; }
+.device-card { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: border-color .15s; }
+.device-card:hover { border-color: var(--primary); }
+.device-link { display: block; color: inherit; }
+.device-link:hover { text-decoration: none; }
+.device-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+
+.inline-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.inline-form + .inline-form { margin-top: 16px; }
+.inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+.inline-form .input-number { width: 88px; }
+.inline-form .grow { flex: 1 1 220px; }
+.form-title { font-weight: 550; margin: 0 0 8px; }
+.result { margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; background: var(--surface-2); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.volume { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+.volume input { flex: 1; min-width: 0; }
+.volume output { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+.conversation { padding: 12px 0; border-top: 1px solid var(--border); }
+.conversation:first-child { padding-top: 0; border-top: 0; }
+.conversation:last-child { padding-bottom: 0; }
+.conversation-time { font-size: 12.5px; color: var(--muted); }
+.conversation-query { font-weight: 550; overflow-wrap: anywhere; }
+.conversation-answer { color: var(--muted); overflow-wrap: anywhere; }
+
+/* Controls generated from a device's specification */
+.controls { display: grid; gap: 14px; }
+.control { display: grid; grid-template-columns: minmax(96px, 200px) minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 0; }
+.control > :nth-child(2):last-child { grid-column: 2 / -1; }
+.control-label { color: var(--muted); overflow-wrap: anywhere; }
+.control-value { overflow-wrap: anywhere; }
+.control-end { display: flex; justify-content: flex-end; }
+.control-range { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.control-range output { min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
+.control-field { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.control-field .input { flex: 1; min-width: 0; }
+.control-args { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.control-args .input { flex: 1 1 120px; min-width: 0; width: auto; }
+.control-arg { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+.control-actions { justify-content: flex-end; margin-top: 16px; display: flex; }
+.range { width: 100%; margin: 0; accent-color: var(--primary); }
+.toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; cursor: pointer; }
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle span { position: absolute; inset: 0; border-radius: 999px; background: var(--border); transition: background .2s; }
+.toggle span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 25%); transition: transform .2s; }
+.toggle input:checked + span { background: var(--green); }
+.toggle input:checked + span::after { transform: translateX(18px); }
+.toggle input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+.toggle input:disabled + span { opacity: .5; cursor: default; }
+.advanced > summary { cursor: pointer; font-size: 15px; font-weight: 600; }
+.advanced > p { margin: 12px 0; }
+@media (max-width: 640px) {
+  .control { grid-template-columns: minmax(0, 1fr) auto; }
+  .control-label { grid-column: 1 / -1; }
+  .control > :nth-child(2):last-child { grid-column: 1 / -1; }
+}

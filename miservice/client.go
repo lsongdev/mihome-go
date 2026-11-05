@@ -1,16 +1,20 @@
 package miservice
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 )
 
 type H = map[string]any
@@ -41,13 +45,29 @@ type Client struct {
 	Client   *http.Client
 	Username string
 	Password string
+	// TokenPath is where the device id and tokens are kept between runs.
+	// Leave it empty to keep them in memory only.
+	TokenPath string
+
+	// mu guards Token, so a Client can be shared between goroutines. It is
+	// held during a login: concurrent requests wait for the one login.
+	mu sync.Mutex
+}
+
+// VerificationError means Xiaomi wants the account verified in a browser
+// before it allows this login.
+type VerificationError struct{ URL string }
+
+func (e *VerificationError) Error() string {
+	return "需要安全验证，请在浏览器中打开以下链接完成验证后重试: " + e.URL
 }
 
 func NewClient(username string, password string) *Client {
 	j, _ := cookiejar.New(nil)
 	return &Client{
 		Client: &http.Client{
-			Jar: j,
+			Jar:     j,
+			Timeout: 30 * time.Second,
 		},
 		Username: username,
 		Password: password,
@@ -133,11 +153,16 @@ type loginResp struct {
 
 // sid: service id, like "xiaomiio", "micoapi", "mina"
 func (ma *Client) Login(sid string) error {
-	var err error
-	if ma.Token == nil {
-		ma.Token = NewTokens()
-		ma.Token.UserName = ma.Username
-		ma.Token.DeviceId = strings.ToUpper(getRandom(16))
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	return ma.login(sid)
+}
+
+// login must be called with mu held.
+func (ma *Client) login(sid string) error {
+	err := ma.ensureToken()
+	if err != nil {
+		return err
 	}
 	cookies := []*http.Cookie{
 		{Name: "sdkVersion", Value: "3.9"},
@@ -152,7 +177,12 @@ func (ma *Client) Login(sid string) error {
 	if err != nil {
 		return err
 	}
+	// A non-zero code here is the normal "not logged in yet" answer (70016):
+	// it carries the _sign and callback needed to submit the password.
 	if resp.Code != 0 {
+		if ma.Username == "" || ma.Password == "" {
+			return errors.New("登录失败: 未设置账号或密码")
+		}
 		data := url.Values{
 			"_json":    {"true"},
 			"qs":       {resp.Qs},
@@ -167,12 +197,11 @@ func (ma *Client) Login(sid string) error {
 			return err
 		}
 		if resp.Code != 0 {
-			return fmt.Errorf("serviceLoginAuth2 error: %v", resp)
+			return fmt.Errorf("登录失败: %s (code: %d)", resp.Desc, resp.Code)
 		}
-		if resp.NotificationURL != "" {
-			err = fmt.Errorf("需要安全验证: %s", resp.NotificationURL)
-			return err
-		}
+	}
+	if resp.NotificationURL != "" {
+		return &VerificationError{URL: resp.NotificationURL}
 	}
 	ma.Token.UserId = fmt.Sprint(resp.UserID)
 	ma.Token.PassToken = resp.PassToken
@@ -184,7 +213,7 @@ func (ma *Client) Login(sid string) error {
 		Ssecurity:    resp.Ssecurity,
 		ServiceToken: serviceToken,
 	}
-	return nil
+	return ma.saveToken()
 }
 
 func (ma *Client) serviceLogin(name string, data url.Values, cookies []*http.Cookie) (*loginResp, error) {
@@ -213,17 +242,11 @@ func (ma *Client) serviceLogin(name string, data url.Values, cookies []*http.Coo
 		return nil, err
 	}
 	var jsonResponse loginResp
-	// "&&&START&&&"
-	err = json.Unmarshal(body[11:], &jsonResponse)
+	err = json.Unmarshal(bytes.TrimPrefix(body, []byte("&&&START&&&")), &jsonResponse)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析登录响应失败 (HTTP %d): %w", resp.StatusCode, err)
 	}
-	if jsonResponse.Code != 0 {
-		// err = fmt.Errorf("Service Login Error:%d %s", jsonResponse.Code, jsonResponse.Desc)
-		// log.Println("Service Login Error:", jsonResponse.Code, jsonResponse.Desc)
-	}
-	// log.Println(string(body))
-	return &jsonResponse, err
+	return &jsonResponse, nil
 }
 
 func (ma *Client) requestServiceToken(location, ssecurity string, nonce int64) (string, error) {
@@ -263,8 +286,16 @@ func (ma *Client) requestServiceToken(location, ssecurity string, nonce int64) (
 type DataCb func(Tokens *Tokens, cookie map[string]string) url.Values
 
 func (ma *Client) NewRequest(sid, u string, data url.Values, cb DataCb, headers http.Header) *http.Request {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
 	var req *http.Request
 	var body io.Reader
+	// Work on a copy: AddCookie writes into the header, and a retry reuses the
+	// caller's headers, which must not keep the expired cookies.
+	headers = headers.Clone()
+	if headers == nil {
+		headers = http.Header{}
+	}
 	cookies := []*http.Cookie{
 		{Name: "userId", Value: ma.Token.UserId},
 		{Name: "serviceToken", Value: ma.Token.Sids[sid].ServiceToken},
@@ -289,9 +320,7 @@ func (ma *Client) NewRequest(sid, u string, data url.Values, cb DataCb, headers 
 		}
 	}
 	req, _ = http.NewRequest(method, u, body)
-	if headers != nil {
-		req.Header = headers
-	}
+	req.Header = headers
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
@@ -306,25 +335,76 @@ func (ma *Client) hasSid(sid string) bool {
 	return ok
 }
 
+// errTokenExpired means the saved serviceToken was rejected by the server.
+var errTokenExpired = errors.New("serviceToken 已失效")
+
 func (ma *Client) Request(sid, u string, data url.Values, cb DataCb, headers http.Header, output H) error {
+	used, err := ma.sidToken(sid)
+	if err != nil {
+		return err
+	}
+	err = ma.doRequest(sid, u, data, cb, headers, output)
+	if !errors.Is(err, errTokenExpired) {
+		return err
+	}
+	// Tokens loaded from disk can expire between runs: log in again once.
+	if err := ma.relogin(sid, used); err != nil {
+		return err
+	}
+	return ma.doRequest(sid, u, data, cb, headers, output)
+}
+
+// sidToken returns the service token of sid, logging in if there is none.
+func (ma *Client) sidToken(sid string) (string, error) {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	if err := ma.ensureToken(); err != nil {
+		return "", err
+	}
 	if !ma.hasSid(sid) {
-		err := ma.Login(sid)
-		if err != nil {
-			return err
+		if err := ma.login(sid); err != nil {
+			return "", err
 		}
 	}
+	return ma.Token.Sids[sid].ServiceToken, nil
+}
+
+// relogin replaces a rejected service token, unless a concurrent request has
+// already done it.
+func (ma *Client) relogin(sid, rejected string) error {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	if ma.Token.Sids[sid].ServiceToken != rejected {
+		return nil
+	}
+	delete(ma.Token.Sids, sid)
+	return ma.login(sid)
+}
+
+func (ma *Client) doRequest(sid, u string, data url.Values, cb DataCb, headers http.Header, output H) error {
 	req := ma.NewRequest(sid, u, data, cb, headers)
 	resp, err := ma.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return errTokenExpired
+	}
 	err = json.NewDecoder(resp.Body).Decode(&output)
 	if err != nil {
-		return err
+		return fmt.Errorf("解析响应失败 (HTTP %d): %w", resp.StatusCode, err)
 	}
-	if output["code"].(float64) != 0 {
-		err = fmt.Errorf("error: %s (code: %2.f)", output["message"], output["code"])
+	code, ok := output["code"].(float64)
+	if !ok {
+		return fmt.Errorf("响应缺少 code 字段 (HTTP %d)", resp.StatusCode)
 	}
-	return err
+	if code == 0 {
+		return nil
+	}
+	message := fmt.Sprint(output["message"])
+	if strings.Contains(strings.ToLower(message), "auth") {
+		return errTokenExpired
+	}
+	return fmt.Errorf("error: %s (code: %.0f)", message, code)
 }
