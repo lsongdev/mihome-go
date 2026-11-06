@@ -1,8 +1,7 @@
 import { html, useState } from '../lib/html.js';
 import { useAction } from '../lib/hooks.js';
-import { Page, Notice, Empty, Status, toast } from '../lib/ui.js';
-import { usePanel } from '../lib/panel.js';
-import { useApi, useCached, useEvents, ApiNotice, dateTime } from '../mi.js';
+import { PageHeader, Alert, Empty, Badge, toast } from '../lib/ui.js';
+import { api, useApi, useCached, useEvents, ApiNotice, dateTime } from '../mi.js';
 
 const LIMIT = 500;
 
@@ -25,24 +24,22 @@ export default function Events() {
   }, { after: 0 });
   const names = new Map((homes.data || []).flatMap(home => home.devices).map(d => [d.did, d.name]));
   const s = status.data;
-  return html`<${Page} title="事件" subtitle=${s ? html`<${StreamStatus} status=${s} live=${live} />` : ''}>
+  return html`<${PageHeader} title="事件" subtitle=${s ? html`<${StreamStatus} status=${s} live=${live} />` : ''} />
     <${ApiNotice} error=${status.error} />
-    ${s && !s.enabled ? html`<${Notice} tone="info">实时事件未开启：在 config.yaml 中设置 events.oauth_client_id 后重启。<//>` : null}
+    ${s && !s.enabled ? html`<${Alert} variant="info">实时事件未开启：在 config.yaml 中设置 events.oauth_client_id 后重启。<//>` : null}
     ${s?.enabled && !s.authorized ? html`<${Login} reload=${status.reload} />` : null}
-    ${s?.error ? html`<${Notice} tone="warn">${s.error}<//>` : null}
+    ${s?.error ? html`<${Alert} variant="warning">${s.error}<//>` : null}
     ${events.length ? html`<div class="card">${events.map(e => html`<${Row} key=${e.seq} event=${e} name=${names.get(e.device_id)} />`)}</div>`
-      : s?.authorized ? html`<${Empty}>还没有事件。操作一下设备试试。<//>` : null}
-  <//>`;
+      : s?.authorized ? html`<${Empty}>还没有事件。操作一下设备试试。<//>` : null}`;
 }
 
 function StreamStatus({ status, live }) {
-  if (!status.enabled || !status.authorized) return html`<${Status} state="off" label="未连接" tone="gray" />`;
+  if (!status.enabled || !status.authorized) return html`<${Badge} dot>未连接<//>`;
   const up = status.connected && live;
-  return html`<${Status} state=${up ? 'live' : 'off'} label=${up ? `实时 · ${status.devices} 台设备` : '重连中'} tone=${up ? 'green' : 'amber'} />`;
+  return html`<${Badge} variant=${up ? 'success' : 'warning'} dot>${up ? `实时 · ${status.devices} 台设备` : '重连中'}<//>`;
 }
 
 function Login({ reload }) {
-  const { api } = usePanel();
   const action = useAction();
   const [address, setAddress] = useState('');
   const open = () => action.run(async () => {

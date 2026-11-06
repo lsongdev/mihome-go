@@ -101,7 +101,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              config.API.Listen,
-		Handler:           web.New(handler).Standalone(token),
+		Handler:           web.Handler(handler, token),
 		ReadHeaderTimeout: 5 * time.Second,
 		// Ending ctx also ends event streams, which Shutdown would wait for.
 		BaseContext: func(net.Listener) context.Context { return ctx },

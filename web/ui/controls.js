@@ -3,9 +3,8 @@
 // a button or a small form.
 import { html, useEffect, useRef, useState } from './lib/html.js';
 import { useResource } from './lib/hooks.js';
-import { usePanel } from './lib/panel.js';
-import { Notice, Empty, toast, toastError, confirmDanger } from './lib/ui.js';
-import { ApiNotice, useEvents } from './mi.js';
+import { Alert, Empty, toast, toastError } from './lib/ui.js';
+import { api, ApiNotice, useEvents } from './mi.js';
 
 // Writing to these is confirmed first: it can open a door or start heating.
 // Actions are always confirmed, since a spec does not say what they do.
@@ -42,7 +41,6 @@ function formatValue(p, entry) {
 // useValues reads every readable property of a device. Each result has its own
 // code, because a device can fail on some properties only.
 function useValues(path, spec, online) {
-  const { api } = usePanel();
   const iids = spec.services.flatMap(s => s.properties.filter(readable).map(p => `${s.iid}.${p.iid}`));
   const query = iids.map(iid => `iid=${iid}`).join('&');
   const resource = useResource(signal => (online && iids.length
@@ -56,7 +54,6 @@ function useValues(path, spec, online) {
 }
 
 export function DeviceControls({ path, spec, device }) {
-  const { api } = usePanel();
   const values = useValues(path, spec, device.online);
   // Devices apply a write a moment later, so read back after a delay.
   const timer = useRef(0);
@@ -76,7 +73,7 @@ export function DeviceControls({ path, spec, device }) {
   });
 
   const write = async (service, property, value) => {
-    if (risky && !confirmDanger(`确定要修改「${device.name}」的「${property.name}」吗？`)) return false;
+    if (risky && !window.confirm(`确定要修改「${device.name}」的「${property.name}」吗？`)) return false;
     try {
       await api.put(`${path}/props`, { siid: service.iid, piid: property.iid, value });
     } catch (error) {
@@ -88,7 +85,7 @@ export function DeviceControls({ path, spec, device }) {
     return true;
   };
   const run = async (service, action, args) => {
-    if (!confirmDanger(`确定要在「${device.name}」上执行「${action.name}」吗？`)) return;
+    if (!window.confirm(`确定要在「${device.name}」上执行「${action.name}」吗？`)) return;
     try {
       const result = await api.post(`${path}/actions`, { siid: service.iid, aiid: action.iid, in: args });
       toast(result?.out?.length ? `${action.name}：${JSON.stringify(result.out)}` : `${action.name}：已发送`, 'success');
@@ -101,7 +98,7 @@ export function DeviceControls({ path, spec, device }) {
   const services = ordered(spec);
   if (!services.length) return html`<${Empty}>这台设备的规格里没有服务<//>`;
   return html`
-    ${device.online ? null : html`<${Notice} tone="warn">设备离线，无法读取状态或控制。<//>`}
+    ${device.online ? null : html`<${Alert} variant="warning">设备离线，无法读取状态或控制。<//>`}
     <${ApiNotice} error=${values.error} />
     <div class="page-actions control-actions">
       <button class="button button-small" disabled=${!device.online || values.loading} onClick=${values.reload}>刷新状态</button>

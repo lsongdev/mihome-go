@@ -1,8 +1,8 @@
 // Live camera video: the API sends fragmented MP4, played through Media Source
 // Extensions, because a plain <video src> can't follow a stream that never ends.
 import { html, useEffect, useRef, useState } from './lib/html.js';
-import { usePanel } from './lib/panel.js';
-import { Notice } from './lib/ui.js';
+import { Alert } from './lib/ui.js';
+import { api } from './mi.js';
 
 const Source = window.ManagedMediaSource ?? window.MediaSource;
 // Seconds of video to keep behind the playhead, and how far it may fall behind.
@@ -81,7 +81,6 @@ async function play(video, response, signal, onPlaying) {
 // CameraView only connects on request: a connection can show on the camera, and
 // each one takes resources from it.
 export function CameraView({ path, online }) {
-  const { api } = usePanel();
   const video = useRef(null);
   const [state, setState] = useState('stopped');
   const [error, setError] = useState('');
@@ -101,7 +100,7 @@ export function CameraView({ path, online }) {
       setState('stopped');
     });
     return () => controller.abort();
-  }, [wanted, api, path]);
+  }, [wanted, path]);
 
   const toggle = () => {
     setError('');
@@ -110,7 +109,7 @@ export function CameraView({ path, online }) {
   return html`<section class="section">
     <h2>实时画面</h2>
     <div class="card camera">
-      ${error ? html`<${Notice}>${error}<//>` : null}
+      ${error ? html`<${Alert} variant="danger">${error}<//>` : null}
       <video ref=${video} class="camera-video" hidden=${!wanted} muted autoplay playsinline controls></video>
       <div class="camera-actions">
         ${state === 'connecting' ? html`<span class="muted">正在连接摄像机…</span>` : null}

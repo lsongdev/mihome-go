@@ -1,9 +1,5 @@
 // Package web is the management panel: the JSON API (package api) paired with
-// a browser UI of native ES modules (ui/, no build step) described by
-// ui/manifest.json.
-//
-// A Panel follows the panel module contract of zigbee-go: Handler serves the
-// API with relative routes and Assets holds the UI. Standalone serves both.
+// a browser UI of native ES modules (ui/, no build step).
 package web
 
 import (
@@ -21,7 +17,7 @@ import (
 //go:embed ui
 var embedded embed.FS
 
-// UI is the panel's browser assets; manifest.json describes them.
+// UI is the panel's browser assets.
 var UI = func() fs.FS {
 	sub, err := fs.Sub(embedded, "ui")
 	if err != nil {
@@ -30,24 +26,12 @@ var UI = func() fs.FS {
 	return sub
 }()
 
-// Panel is the management panel for one API handler.
-type Panel struct{ api http.Handler }
-
-// New returns the panel for an API handler with relative routes.
-func New(api http.Handler) *Panel { return &Panel{api: api} }
-
-// Handler serves the API with relative routes.
-func (p *Panel) Handler() http.Handler { return p.api }
-
-// Assets returns the browser UI; manifest.json is at its root.
-func (p *Panel) Assets() fs.FS { return UI }
-
 // csp only allows the panel's own scripts, styles, images and API calls. Camera
 // video plays from the blob: URL of a MediaSource.
 const csp = "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; " +
 	"connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
-// Standalone serves the panel at /, the API at /api/ and an unauthenticated
+// Handler serves the panel at /, the API at /api/ and an unauthenticated
 // /healthz. A non-empty token is required everywhere else: scripts send
 // "Authorization: Bearer <token>", browsers use HTTP basic authentication with
 // the token as the password (any user name).
@@ -55,10 +39,10 @@ const csp = "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; s
 // Without a token only requests addressed to a loopback host are served. The
 // API controls real devices, and this stops a web page from reaching it through
 // DNS rebinding, which origin checks cannot see.
-func (p *Panel) Standalone(token string) http.Handler {
+func Handler(api http.Handler, token string) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/api/", http.StripPrefix("/api", p.Handler()))
-	mux.Handle("/", static(p.Assets()))
+	mux.Handle("/api/", http.StripPrefix("/api", api))
+	mux.Handle("/", static(UI))
 	protected := http.NewCrossOriginProtection().Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {

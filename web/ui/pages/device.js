@@ -1,16 +1,14 @@
 import { html, useState } from '../lib/html.js';
 import { useAction } from '../lib/hooks.js';
-import { Page, Notice, Loading, KV, Badge, toast, confirmDanger } from '../lib/ui.js';
-import { usePanel } from '../lib/panel.js';
-import { useApi, useCached, useAvailability, ApiNotice, OnlineStatus } from '../mi.js';
+import { PageHeader, Alert, Loading, KeyValue, Badge, toast } from '../lib/ui.js';
+import { api, useApi, useCached, useAvailability, ApiNotice, OnlineStatus } from '../mi.js';
 import { DeviceControls } from '../controls.js';
 import { CameraView } from '../camera.js';
 import { displaySpec } from '../lib/spec.js';
 
 const SPEC_URL = 'https://miot-spec.org/miot-spec-v2/instances?status=all';
 
-export default function Device() {
-  const { params } = usePanel();
+export default function Device({ params }) {
   const path = `/devices/${encodeURIComponent(params.did)}`;
   const resource = useCached(path);
   const online = useAvailability(resource.refresh);
@@ -18,17 +16,16 @@ export default function Device() {
   const spec = { ...specResource, data: specResource.data ? displaySpec(specResource.data) : specResource.data };
   const actions = html`<button class="button" disabled=${resource.loading} onClick=${resource.refresh}>刷新</button>`;
   if (resource.data === undefined) {
-    return html`<${Page} title="设备" actions=${actions}>
-      ${resource.error ? html`<${ApiNotice} error=${resource.error} />` : html`<${Loading} />`}
-    <//>`;
+    return html`<${PageHeader} title="设备" actions=${actions} />
+      ${resource.error ? html`<${ApiNotice} error=${resource.error} />` : html`<${Loading} />`}`;
   }
   const { device, home, shared } = resource.data;
   const d = { ...device, online: online(device.did, device.online) };
-  return html`<${Page} title=${d.name} subtitle=${html`<${OnlineStatus} online=${d.online} />`} actions=${actions}>
+  return html`<${PageHeader} title=${d.name} subtitle=${html`<${OnlineStatus} online=${d.online} />`} actions=${actions} />
     <section class="section">
       <h2>设备信息</h2>
-      <div class="card"><${KV} items=${[
-        ['家庭', html`${home} ${shared ? html`<${Badge} tone="blue">共享<//>` : null}`],
+      <div class="card"><${KeyValue} items=${[
+        ['家庭', html`${home} ${shared ? html`<${Badge} variant="info">共享<//>` : null}`],
         ['型号', d.model],
         ['DID', html`<code>${d.did}</code>`],
         ['规格', spec.data?.name],
@@ -47,8 +44,7 @@ export default function Device() {
         <${WriteProp} path=${path} name=${d.name} />
         <${RunAction} path=${path} name=${d.name} />
       </div>
-    </details>
-  <//>`;
+    </details>`;
 }
 
 // parseJSON reads a typed value; anything that is not valid JSON is a string.
@@ -68,7 +64,6 @@ const Result = ({ action, value }) => html`
   ${value !== undefined && !action.error ? html`<pre class="result">${JSON.stringify(value, null, 2)}</pre>` : null}`;
 
 function ReadProp({ path }) {
-  const { api } = usePanel();
   const action = useAction();
   const [siid, setSiid] = useState('2');
   const [piid, setPiid] = useState('1');
@@ -90,7 +85,6 @@ function ReadProp({ path }) {
 }
 
 function WriteProp({ path, name }) {
-  const { api } = usePanel();
   const action = useAction();
   const [siid, setSiid] = useState('2');
   const [piid, setPiid] = useState('1');
@@ -98,7 +92,7 @@ function WriteProp({ path, name }) {
   const [value, setValue] = useState();
   const submit = async e => {
     e.preventDefault();
-    if (!confirmDanger(`确定要写入「${name}」的属性 ${siid}.${piid} 吗？`)) return;
+    if (!window.confirm(`确定要写入「${name}」的属性 ${siid}.${piid} 吗？`)) return;
     const body = { siid: Number(siid), piid: Number(piid), value: parseJSON(text) };
     const result = await action.run(() => api.put(`${path}/props`, body));
     if (result !== undefined) { setValue(result); toast('已发送', 'success'); }
@@ -117,7 +111,6 @@ function WriteProp({ path, name }) {
 }
 
 function RunAction({ path, name }) {
-  const { api } = usePanel();
   const action = useAction();
   const [siid, setSiid] = useState('2');
   const [aiid, setAiid] = useState('1');
@@ -129,7 +122,7 @@ function RunAction({ path, name }) {
     const args = parseJSON(text);
     setInvalid(!Array.isArray(args));
     if (!Array.isArray(args)) return;
-    if (!confirmDanger(`确定要在「${name}」上执行动作 ${siid}.${aiid} 吗？`)) return;
+    if (!window.confirm(`确定要在「${name}」上执行动作 ${siid}.${aiid} 吗？`)) return;
     const result = await action.run(() => api.post(`${path}/actions`, { siid: Number(siid), aiid: Number(aiid), in: args }));
     if (result !== undefined) { setValue(result); toast('已发送', 'success'); }
   };
@@ -142,7 +135,7 @@ function RunAction({ path, name }) {
         <input class="input" value=${text} onInput=${e => setText(e.currentTarget.value)} /></label>
       <button class="button" disabled=${action.busy}>执行</button>
     </form>
-    ${invalid ? html`<${Notice}>参数必须是 JSON 数组<//>` : null}
+    ${invalid ? html`<${Alert}>参数必须是 JSON 数组<//>` : null}
     <${Result} action=${action} value=${value} />
   </div>`;
 }

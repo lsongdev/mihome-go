@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -11,38 +10,23 @@ import (
 	"testing"
 )
 
-func TestManifestFollowsContract(t *testing.T) {
-	data, err := fs.ReadFile(UI, "manifest.json")
+// index.html has to load the app and stylesheets that exist.
+func TestIndexLoadsApp(t *testing.T) {
+	index, err := fs.ReadFile(UI, "index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m struct {
-		Contract int
-		ID       string
-		Title    string
-		Entry    string
-		Styles   []string
-		Nav      []struct{ Path string }
-	}
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatal(err)
-	}
-	if m.Contract != 1 || m.ID != "mihome" || m.Title == "" {
-		t.Fatalf("manifest = %+v", m)
-	}
-	for _, name := range append([]string{m.Entry, "index.html"}, m.Styles...) {
+	refs := regexp.MustCompile(`(?:src|href)="([^":]+)"`).FindAllSubmatch(index, -1)
+	app := false
+	for _, m := range refs {
+		name := string(m[1])
+		app = app || name == "app.js"
 		if _, err := fs.Stat(UI, name); err != nil {
-			t.Errorf("%s: %v", name, err)
+			t.Errorf("index.html loads %s: %v", name, err)
 		}
 	}
-	entry, _ := fs.ReadFile(UI, m.Entry)
-	if !regexp.MustCompile(`export (function|const) mount\b`).Match(entry) {
-		t.Error("entry does not export mount")
-	}
-	for _, n := range m.Nav {
-		if !strings.Contains(string(entry), `path: '`+n.Path+`'`) {
-			t.Errorf("no route for %s", n.Path)
-		}
+	if !app {
+		t.Error("index.html does not load app.js")
 	}
 }
 
@@ -71,11 +55,11 @@ func serve(token, host, target string, prepare func(*http.Request)) *httptest.Re
 		prepare(req)
 	}
 	w := httptest.NewRecorder()
-	New(api).Standalone(token).ServeHTTP(w, req)
+	Handler(api, token).ServeHTTP(w, req)
 	return w
 }
 
-func TestStandaloneRoutes(t *testing.T) {
+func TestHandlerRoutes(t *testing.T) {
 	if w := serve("", "127.0.0.1:8080", "/api/homes", nil); w.Code != 200 || w.Body.String() != "api:/homes" {
 		t.Fatalf("api: %d %s", w.Code, w.Body)
 	}
@@ -128,7 +112,7 @@ func TestCrossOriginWritesAreRejected(t *testing.T) {
 	req.Host = "localhost:8080"
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	w := httptest.NewRecorder()
-	New(api).Standalone("").ServeHTTP(w, req)
+	Handler(api, "").ServeHTTP(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("got %d", w.Code)
 	}

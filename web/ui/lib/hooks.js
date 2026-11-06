@@ -33,22 +33,6 @@ export function useResource(fn, deps = [], { interval } = {}) {
   return { ...state, reload };
 }
 
-// useBusy tracks in-flight actions by key and reports their errors.
-export function useBusy(onError) {
-  const [busy, setBusy] = useState({});
-  const run = useCallback(async (key, fn) => {
-    setBusy(b => ({ ...b, [key]: true }));
-    try {
-      return await fn();
-    } catch (err) {
-      onError?.(err);
-    } finally {
-      setBusy(b => { const next = { ...b }; delete next[key]; return next; });
-    }
-  }, [onError]);
-  return [busy, run];
-}
-
 // useAction wraps one async operation with busy and error state, for forms
 // and buttons whose failure is shown inline.
 export function useAction() {

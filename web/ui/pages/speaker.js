@@ -1,36 +1,32 @@
 import { html, useEffect, useState } from '../lib/html.js';
 import { useAction, useResource } from '../lib/hooks.js';
-import { Page, Loading, Empty, KV, toast } from '../lib/ui.js';
-import { usePanel } from '../lib/panel.js';
-import { useApi, useCached, useAvailability, ApiNotice, OnlineStatus, dateTime, playerInfo } from '../mi.js';
+import { PageHeader, Loading, Empty, KeyValue, toast } from '../lib/ui.js';
+import { href } from '../lib/router.js';
+import { api, useApi, useCached, useAvailability, ApiNotice, OnlineStatus, dateTime, playerInfo } from '../mi.js';
 import { displaySpec } from '../lib/spec.js';
 import { speakerControls } from '../lib/speaker.js';
 import { DeviceControls } from '../controls.js';
 
-export default function Speaker() {
-  const { params, href } = usePanel();
+export default function Speaker({ params }) {
   const path = `/speakers/${encodeURIComponent(params.id)}`;
   const speaker = useCached(path);
   const online = useAvailability(speaker.refresh);
   const back = { href: href('/speakers'), label: '音箱' };
   if (speaker.data === undefined) {
-    return html`<${Page} title="音箱" back=${back}>
-      ${speaker.error ? html`<${ApiNotice} error=${speaker.error} />` : html`<${Loading} />`}
-    <//>`;
+    return html`<${PageHeader} title="音箱" back=${back} />
+      ${speaker.error ? html`<${ApiNotice} error=${speaker.error} />` : html`<${Loading} />`}`;
   }
   const s = { ...speaker.data, online: online(speaker.data.miot_did, speaker.data.online) };
-  return html`<${Page} title=${s.name} back=${back} subtitle=${html`<${OnlineStatus} online=${s.online} />`}>
+  return html`<${PageHeader} title=${s.name} back=${back} subtitle=${html`<${OnlineStatus} online=${s.online} />`} />
     <section class="section">
       <h2>设备信息</h2>
-      <div class="card"><${KV} items=${[['型号', s.hardware], ['别名', s.alias], ['DID', html`<code>${s.miot_did}</code>`]]} /></div>
+      <div class="card"><${KeyValue} items=${[['型号', s.hardware], ['别名', s.alias], ['DID', html`<code>${s.miot_did}</code>`]]} /></div>
     </section>
     <${SpeakerActions} key=${s.id} path=${path} speaker=${s} />
-    <section class="section"><h2>对话记录</h2><${Conversations} path=${path} /></section>
-  <//>`;
+    <section class="section"><h2>对话记录</h2><${Conversations} path=${path} /></section>`;
 }
 
 function SpeakerActions({ path, speaker }) {
-  const { api } = usePanel();
   const devicePath = `/devices/${encodeURIComponent(speaker.miot_did)}`;
   const resource = useResource(signal => speaker.miot_did
     ? api.get(`${devicePath}/spec`, { signal }) : Promise.resolve(null), [devicePath]);
@@ -52,7 +48,6 @@ function SpeakerActions({ path, speaker }) {
 }
 
 function Say({ path, speech, online }) {
-  const { api } = usePanel();
   const action = useAction();
   const [text, setText] = useState('');
   const submit = async e => {
@@ -71,7 +66,6 @@ function Say({ path, speech, online }) {
 }
 
 function Player({ path, online }) {
-  const { api } = usePanel();
   const action = useAction();
   const status = useApi(`${path}/player`);
   const info = playerInfo(status.data);
