@@ -1,32 +1,29 @@
-// Mi Home panel: top navigation and the page for the location hash.
-import { html, render } from './lib/html.js';
-import { Navbar, DialogHost, Toaster } from './lib/ui.js';
-import { createRoutes, href, useLocation } from './lib/router.js';
+// The Mi Home panel: navigation and the page for the location hash.
+import { html, render, lazy, useRoute, RouterView, Navbar, Alert, DialogHost, Toaster } from '@lsongdev/scripts/react/index.js';
+import { createRouter } from '@lsongdev/scripts/navigation/router.js';
+
+const router = createRouter([
+  ['/', lazy(() => import('./pages/devices.js'))],
+  ['/devices/:did', lazy(() => import('./pages/device.js'))],
+  ['/speakers', lazy(() => import('./pages/speakers.js'))],
+  ['/speakers/:id', lazy(() => import('./pages/speaker.js'))],
+  ['/events', lazy(() => import('./pages/events.js'))],
+], { hash: true });
+router.start();
 
 const nav = [
-  { path: '/', title: '设备' },
-  { path: '/speakers', title: '音箱' },
-  { path: '/events', title: '事件' },
+  { href: '#/', title: '设备' },
+  { href: '#/speakers', title: '音箱' },
+  { href: '#/events', title: '事件' },
 ];
 
-const Routes = createRoutes([
-  { path: '/', load: () => import('./pages/devices.js') },
-  { path: '/devices/:did', load: () => import('./pages/device.js') },
-  { path: '/speakers', load: () => import('./pages/speakers.js') },
-  { path: '/speakers/:id', load: () => import('./pages/speaker.js') },
-  { path: '/events', load: () => import('./pages/events.js') },
-]);
-
 function App() {
-  const { path, query } = useLocation();
-  // The longest matching entry is active; "/" only matches exactly.
-  const active = nav
-    .filter(i => path === i.path || (i.path !== '/' && path.startsWith(i.path + '/')))
-    .sort((a, b) => b.path.length - a.path.length)[0];
+  const route = useRoute(router);
   return html`
-    <${Navbar} className="topbar" brand="Mi Home" mark="◆" label="主导航"
-      items=${nav.map(i => ({ href: href(i.path), title: i.title, active: i === active }))} />
-    <main class="content"><${Routes} path=${path} query=${query} /></main>
+    <${Navbar} className="container" brand="Mi Home" mark="◆" label="主导航" items=${nav} current=${router.href(route.path)} />
+    <main class="container stack">
+      <${RouterView} router=${router} notFound=${html`<${Alert} variant="warning">页面不存在<//>`} />
+    </main>
     <${DialogHost} />
     <${Toaster} />`;
 }

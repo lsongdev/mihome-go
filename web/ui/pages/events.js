@@ -1,6 +1,4 @@
-import { html, useState } from '../lib/html.js';
-import { useAction } from '../lib/hooks.js';
-import { PageHeader, Alert, Empty, Badge, toast } from '../lib/ui.js';
+import { html, useState, useAction, PageHeader, Alert, Empty, Badge, toast } from '@lsongdev/scripts/react/index.js';
 import { api, useApi, useCached, useEvents, ApiNotice, dateTime } from '../mi.js';
 
 const LIMIT = 500;
@@ -51,8 +49,8 @@ function Login({ reload }) {
     const result = await action.run(() => api.post('/oauth', { url: address }));
     if (result) { setAddress(''); toast('登录成功', 'success'); reload(); }
   };
-  return html`<section class="section">
-    <h2>连接实时事件</h2>
+  return html`<section class="stack">
+    <h2 class="section-title">连接实时事件</h2>
     <div class="card">
       <p>实时事件需要单独登录一次小米账号。登录后浏览器会跳到 homeassistant.local，页面打不开是正常的，把地址栏的完整地址粘贴到下面。</p>
       <div class="button-row"><button class="button button-primary" disabled=${action.busy} onClick=${open}>打开小米登录</button></div>

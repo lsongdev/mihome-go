@@ -1,9 +1,7 @@
 // Device controls generated from a MIoT specification: each property becomes a
 // control according to its access, format, value list and range, and each action
 // a button or a small form.
-import { html, useEffect, useRef, useState } from './lib/html.js';
-import { useResource } from './lib/hooks.js';
-import { Alert, Empty, toast, toastError } from './lib/ui.js';
+import { html, useEffect, useRef, useState, useResource, Alert, Empty, toast } from '@lsongdev/scripts/react/index.js';
 import { api, ApiNotice, useEvents } from './mi.js';
 
 // Writing to these is confirmed first: it can open a door or start heating.
@@ -77,7 +75,7 @@ export function DeviceControls({ path, spec, device }) {
     try {
       await api.put(`${path}/props`, { siid: service.iid, piid: property.iid, value });
     } catch (error) {
-      toastError(error);
+      (err => toast(err.message, 'danger'))(error);
       return false;
     }
     values.setValues(v => ({ ...v, [`${service.iid}.${property.iid}`]: { value } }));
@@ -91,7 +89,7 @@ export function DeviceControls({ path, spec, device }) {
       toast(result?.out?.length ? `${action.name}：${JSON.stringify(result.out)}` : `${action.name}：已发送`, 'success');
       readBack();
     } catch (error) {
-      toastError(error);
+      (err => toast(err.message, 'danger'))(error);
     }
   };
 
@@ -109,8 +107,8 @@ export function DeviceControls({ path, spec, device }) {
 
 function Service({ service, values, disabled, write, run }) {
   const { properties, actions, events } = service;
-  return html`<section class="section">
-    <h2>${service.name}</h2>
+  return html`<section class="stack">
+    <h2 class="section-title">${service.name}</h2>
     <div class="card controls">
       ${properties.map(p => html`<${Property} key=${p.iid} property=${p} entry=${values[`${service.iid}.${p.iid}`]}
         disabled=${disabled} write=${value => write(service, p, value)} />`)}

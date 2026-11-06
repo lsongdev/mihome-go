@@ -1,6 +1,5 @@
-// HTTP client for a module's API. The shell creates one per module with the
-// module's base path, so module code only ever uses relative paths.
-
+// HTTP client for the panel's JSON API: relative paths, JSON bodies, errors
+// as ApiError, and server-sent event streams.
 
 export class ApiError extends Error {
   constructor(status, { code = 'error', message = 'Request failed', fields } = {}) {
@@ -40,7 +39,7 @@ export function createClient(base, { envelope = true } = {}) {
       if (err.name === 'AbortError') throw err;
       throw new ApiError(0, { code: 'network', message: 'Cannot reach the server' });
     }
-    if (response.status === 401) dispatchEvent(new Event('panel:unauthorized'));
+    if (response.status === 401) dispatchEvent(new Event('api:unauthorized'));
     const payload = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
       const error = payload?.error;

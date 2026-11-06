@@ -1,9 +1,8 @@
-import { html } from '../lib/html.js';
-import { PageHeader, Loading, Empty } from '../lib/ui.js';
-import { href } from '../lib/router.js';
+import { html, PageHeader, Loading, Empty, useRouter } from '@lsongdev/scripts/react/index.js';
 import { useCached, useAvailability, ApiNotice, OnlineStatus, byName } from '../mi.js';
 
 export default function Speakers() {
+  const router = useRouter();
   const speakers = useCached('/speakers');
   const online = useAvailability(speakers.refresh);
   const list = (speakers.data || []).map(s => ({ ...s, online: online(s.miot_did, s.online) })).sort(byName);
@@ -14,8 +13,8 @@ export default function Speakers() {
       : !list.length ? html`<${Empty}>暂无音箱<//>`
       : html`<div class="device-grid">${list.map(s => html`<div key=${s.id} class="card device-card">
         <div>
-          <a class="cell-main truncate device-link" href=${href(`/speakers/${encodeURIComponent(s.id)}`)}>${s.name}</a>
-          <div class="cell-sub truncate">${s.hardware}</div>
+          <a class="text-truncate device-link" href=${router.href(`/speakers/${encodeURIComponent(s.id)}`)}>${s.name}</a>
+          <div class="muted text-sm text-truncate">${s.hardware}</div>
         </div>
         <div><${OnlineStatus} online=${s.online} /></div>
       </div>`)}</div>`}`;

@@ -1,8 +1,6 @@
 // Mi Home UI conventions on top of the shared components.
-import { html, useEffect, useRef, useState } from './lib/html.js';
-import { useResource } from './lib/hooks.js';
+import { html, useEffect, useRef, useState, useResource, Alert, Badge } from '@lsongdev/scripts/react/index.js';
 import { createClient } from './lib/client.js';
-import { Alert, Badge } from './lib/ui.js';
 
 // api is the JSON API client; the API answers plain JSON, not {"data": …}.
 export const api = createClient('api/', { envelope: false });

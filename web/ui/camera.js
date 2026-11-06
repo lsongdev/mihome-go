@@ -1,7 +1,6 @@
 // Live camera video: the API sends fragmented MP4, played through Media Source
 // Extensions, because a plain <video src> can't follow a stream that never ends.
-import { html, useEffect, useRef, useState } from './lib/html.js';
-import { Alert } from './lib/ui.js';
+import { html, useEffect, useRef, useState, Alert } from '@lsongdev/scripts/react/index.js';
 import { api } from './mi.js';
 
 const Source = window.ManagedMediaSource ?? window.MediaSource;
@@ -106,8 +105,8 @@ export function CameraView({ path, online }) {
     setError('');
     setState(wanted ? 'stopped' : 'connecting');
   };
-  return html`<section class="section">
-    <h2>实时画面</h2>
+  return html`<section class="stack">
+    <h2 class="section-title">实时画面</h2>
     <div class="card camera">
       ${error ? html`<${Alert} variant="danger">${error}<//>` : null}
       <video ref=${video} class="camera-video" hidden=${!wanted} muted autoplay playsinline controls></video>

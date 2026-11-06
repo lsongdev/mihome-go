@@ -1,6 +1,4 @@
-import { html, useState } from '../lib/html.js';
-import { useAction } from '../lib/hooks.js';
-import { PageHeader, Alert, Loading, KeyValue, Badge, toast } from '../lib/ui.js';
+import { html, useState, useAction, PageHeader, Alert, Loading, KeyValue, Badge, toast } from '@lsongdev/scripts/react/index.js';
 import { api, useApi, useCached, useAvailability, ApiNotice, OnlineStatus } from '../mi.js';
 import { DeviceControls } from '../controls.js';
 import { CameraView } from '../camera.js';
@@ -22,8 +20,8 @@ export default function Device({ params }) {
   const { device, home, shared } = resource.data;
   const d = { ...device, online: online(device.did, device.online) };
   return html`<${PageHeader} title=${d.name} subtitle=${html`<${OnlineStatus} online=${d.online} />`} actions=${actions} />
-    <section class="section">
-      <h2>设备信息</h2>
+    <section class="stack">
+      <h2 class="section-title">设备信息</h2>
       <div class="card"><${KeyValue} items=${[
         ['家庭', html`${home} ${shared ? html`<${Badge} variant="info">共享<//>` : null}`],
         ['型号', d.model],
@@ -33,9 +31,9 @@ export default function Device({ params }) {
     </section>
     ${spec.data?.type === 'camera' ? html`<${CameraView} key=${path} path=${path} online=${d.online} />` : null}
     ${spec.data ? html`<${DeviceControls} key=${spec.data.urn} path=${path} spec=${spec.data} device=${d} />`
-      : spec.error ? html`<section class="section"><${ApiNotice} error=${spec.error} /></section>`
+      : spec.error ? html`<section class="stack"><${ApiNotice} error=${spec.error} /></section>`
       : spec.loading ? html`<${Loading} />`
-      : html`<section class="section"><p class="muted">这台设备没有 MIoT 规格，只能用下面的高级调试。</p></section>`}
+      : html`<section class="stack"><p class="muted">这台设备没有 MIoT 规格，只能用下面的高级调试。</p></section>`}
     <details class="section advanced" open=${spec.data === null || Boolean(spec.error)}>
       <summary>高级调试</summary>
       <p class="muted">按 <a href=${SPEC_URL} target="_blank" rel="noreferrer">MIoT 规格</a> 中的 siid / piid / aiid 操作。写属性和执行动作会真实控制设备。</p>
@@ -97,7 +95,7 @@ function WriteProp({ path, name }) {
     const result = await action.run(() => api.put(`${path}/props`, body));
     if (result !== undefined) { setValue(result); toast('已发送', 'success'); }
   };
-  return html`<div class="section">
+  return html`<div class="stack">
     <p class="form-title">写属性</p>
     <form class="inline-form" onSubmit=${submit}>
       <${Id} label="siid" value=${siid} set=${setSiid} />
@@ -126,7 +124,7 @@ function RunAction({ path, name }) {
     const result = await action.run(() => api.post(`${path}/actions`, { siid: Number(siid), aiid: Number(aiid), in: args }));
     if (result !== undefined) { setValue(result); toast('已发送', 'success'); }
   };
-  return html`<div class="section">
+  return html`<div class="stack">
     <p class="form-title">执行动作</p>
     <form class="inline-form" onSubmit=${submit}>
       <${Id} label="siid" value=${siid} set=${setSiid} />
