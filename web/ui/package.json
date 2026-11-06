@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Browser dependencies embedded in the Go binary, pinned to library commits until they are published. Run make deps to install from the lockfile; node_modules is not tracked.",
   "dependencies": {
-    "@lsongdev/scripts": "git+https://github.com/lsongdev/scripts.git#a4a0866f664206752d01fc11d51de3101271d2e9",
-    "@lsongdev/stylesheets": "git+https://github.com/lsongdev/stylesheets.git#c3d4fe4c531ebf8d54247304f260394584a5a658"
+    "@lsongdev/scripts": "git+https://github.com/lsongdev/scripts.git#e8492e2fd18a72aa596fa46c4c6d703f12712671",
+    "@lsongdev/stylesheets": "git+https://github.com/lsongdev/stylesheets.git#bb442468470ffd3f8a3da733472f47b846de0202"
   }
 }

@@ -2,7 +2,7 @@
    @lsongdev/stylesheets; these only cover what is particular to this panel. */
 .navbar.container { padding-top: 20px; }
 main.container { padding-block: 24px 64px; }
-:root { --empty-bg: var(--color-surface); --empty-border: 1px dashed var(--color-border); }
+:root { --switch-color-on: var(--color-success); --empty-bg: var(--color-surface); --empty-border: 1px dashed var(--color-border); }
 .section-title { margin: 8px 0 0; font-size: 15px; font-weight: 600; }
 
 .home-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -51,14 +51,6 @@ main.container { padding-block: 24px 64px; }
 .control-arg { display: inline-flex; gap: 6px; align-items: center; color: var(--color-text-muted); }
 .control-actions { justify-content: flex-end; margin-top: 16px; display: flex; }
 .range { width: 100%; margin: 0; accent-color: var(--color-primary); }
-.toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; cursor: pointer; }
-.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle span { position: absolute; inset: 0; border-radius: 999px; background: var(--color-border); transition: background .2s; }
-.toggle span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 25%); transition: transform .2s; }
-.toggle input:checked + span { background: var(--color-success); }
-.toggle input:checked + span::after { transform: translateX(18px); }
-.toggle input:focus-visible + span { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.toggle input:disabled + span { opacity: .5; cursor: default; }
 .advanced > summary { cursor: pointer; font-size: 15px; font-weight: 600; }
 .advanced > p { margin: 12px 0; }
 @media (max-width: 640px) {

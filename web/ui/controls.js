@@ -1,7 +1,7 @@
 // Device controls generated from a MIoT specification: each property becomes a
 // control according to its access, format, value list and range, and each action
 // a button or a small form.
-import { html, useEffect, useRef, useState, useResource, Alert, Empty, toast } from '@lsongdev/scripts/react/index.js';
+import { html, useEffect, useRef, useState, useResource, Alert, Empty, Switch, toast } from '@lsongdev/scripts/react/index.js';
 import { api, ApiNotice, useEvents } from './mi.js';
 
 // Writing to these is confirmed first: it can open a door or start heating.
@@ -137,10 +137,8 @@ function Property({ property: p, entry, disabled, write }) {
 // Input picks the control for a writable property.
 function Input({ property: p, value, disabled, commit }) {
   if (p.format === 'bool') {
-    return html`<span class="control-end"><label class="toggle" title=${p.name}>
-      <input type="checkbox" aria-label=${p.name} checked=${value === true} disabled=${disabled}
-        onChange=${e => commit(e.currentTarget.checked)} /><span></span>
-    </label></span>`;
+    return html`<span class="control-end"><${Switch} title=${p.name} aria-label=${p.name} checked=${value === true}
+      disabled=${disabled} onChange=${e => commit(e.currentTarget.checked)} /></span>`;
   }
   if (p.options?.length) return html`<${Select} property=${p} value=${value} disabled=${disabled} onPick=${commit} />`;
   if (p.range) return html`<${Range} property=${p} value=${value} disabled=${disabled} commit=${commit} />`;
