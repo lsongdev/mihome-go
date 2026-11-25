@@ -76,3 +76,5 @@ main.container { padding-block: 24px 64px; }
 .camera { display: grid; gap: 12px; }
 .camera-video { width: 100%; max-height: 70vh; background: #000; border-radius: 6px; }
 .camera-actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; }
+
+.account-login { max-width: 560px; }

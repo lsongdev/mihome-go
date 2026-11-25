@@ -65,7 +65,7 @@ export function ApiNotice({ error }) {
   const url = error.fields?.url;
   if (error.code === 'verification_required' && url?.startsWith('https://')) {
     return html`<${Alert} variant="warning">
-      小米账号需要安全验证。<a href=${url} target="_blank" rel="noreferrer">打开验证页面</a>，完成后刷新本页。
+      小米账号需要安全验证。<a href=${url} target="_blank" rel="noreferrer">打开验证页面</a>，完成后<a href="#/login">重新登录并保存 token</a>。
     <//>`;
   }
   return html`<${Alert} error=${error} />`;

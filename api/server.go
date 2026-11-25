@@ -79,6 +79,8 @@ func New(service Service, options Options) *Server {
 		options.SpecLanguage = mihome.DefaultSpecLanguage
 	}
 	s := &Server{service: service, options: options, mux: http.NewServeMux(), hub: newEventHub(), authorized: make(chan struct{}, 1)}
+	s.mux.HandleFunc("GET /login", s.loginStatus)
+	s.mux.HandleFunc("POST /login", s.login)
 	s.mux.HandleFunc("GET /events", s.events)
 	s.mux.HandleFunc("GET /events/status", s.eventStatus)
 	s.mux.HandleFunc("GET /oauth", s.oauthURL)

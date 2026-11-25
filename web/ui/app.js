@@ -7,6 +7,7 @@ const router = createRouter([
   ['/devices/:did', lazy(() => import('./pages/device.js'))],
   ['/speakers', lazy(() => import('./pages/speakers.js'))],
   ['/speakers/:id', lazy(() => import('./pages/speaker.js'))],
+  ['/login', lazy(() => import('./pages/login.js'))],
   ['/events', lazy(() => import('./pages/events.js'))],
 ], { hash: true });
 router.start();
@@ -15,6 +16,7 @@ const nav = [
   { href: '#/', title: '设备' },
   { href: '#/speakers', title: '音箱' },
   { href: '#/events', title: '事件' },
+  { href: '#/login', title: '账号登录' },
 ];
 
 function App() {

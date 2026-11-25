@@ -191,8 +191,13 @@ func (ma *Client) login(sid string) error {
 		cookies = append(cookies, &http.Cookie{Name: "userId", Value: ma.Token.UserId})
 		cookies = append(cookies, &http.Cookie{Name: "passToken", Value: ma.Token.PassToken})
 	}
+	// A login has its own cookie session: stale account cookies from earlier
+	// renewal attempts must not compete with the explicit token cookies.
+	httpClient := *ma.Client
+	httpClient.Jar, _ = cookiejar.New(nil)
+	session := &Client{Client: &httpClient}
 	var resp *loginResp
-	resp, err = ma.serviceLogin(fmt.Sprintf("serviceLogin?sid=%s&_json=true", sid), nil, cookies)
+	resp, err = session.serviceLogin(fmt.Sprintf("serviceLogin?sid=%s&_json=true", sid), nil, cookies)
 	if err != nil {
 		return err
 	}
@@ -211,7 +216,7 @@ func (ma *Client) login(sid string) error {
 			"user":     {ma.Username},
 			"hash":     {strings.ToUpper(fmt.Sprintf("%x", md5.Sum([]byte(ma.Password))))},
 		}
-		resp, err = ma.serviceLogin("serviceLoginAuth2", data, cookies)
+		resp, err = session.serviceLogin("serviceLoginAuth2", data, cookies)
 		if err != nil {
 			return err
 		}
@@ -224,7 +229,7 @@ func (ma *Client) login(sid string) error {
 	}
 	ma.Token.UserId = fmt.Sprint(resp.UserID)
 	ma.Token.PassToken = resp.PassToken
-	serviceToken, err := ma.requestServiceToken(resp.Location, resp.Ssecurity, resp.Nonce)
+	serviceToken, err := session.requestServiceToken(resp.Location, resp.Ssecurity, resp.Nonce)
 	if err != nil {
 		return err
 	}
@@ -279,25 +284,40 @@ func (ma *Client) requestServiceToken(location, ssecurity string, nonce int64) (
 		"User-Agent": []string{UA},
 	}
 	req.Header = headers
-	resp, err := ma.Client.Do(req)
+	// Capture cookies on each redirect, rather than accepting an older cookie
+	// that might still be in the shared jar from a previous login.
+	client := *ma.Client
+	var redirectCookies []*http.Cookie
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if next.Response != nil {
+			redirectCookies = append(redirectCookies, next.Response.Cookies()...)
+		}
+		if ma.Client.CheckRedirect != nil {
+			return ma.Client.CheckRedirect(next, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("登录跳转次数过多")
+		}
+		return nil
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("response error: %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
-	cookies := resp.Cookies()
+	cookies := append(redirectCookies, resp.Cookies()...)
 	var serviceToken string
 	for _, cookie := range cookies {
 		if cookie.Name == "serviceToken" {
 			serviceToken = cookie.Value
-			break
 		}
 	}
-	body, _ := io.ReadAll(resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	if serviceToken == "" {
-		return "", fmt.Errorf("service token not found in cookie, body: %s", body)
+		return "", errors.New("未获取到 service token，请重新登录小米账号")
 	}
 	return serviceToken, nil
 }

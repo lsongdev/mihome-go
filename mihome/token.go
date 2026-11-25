@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -64,8 +65,24 @@ func (ma *Client) saveToken() error {
 	if err != nil {
 		return err
 	}
-	// The file holds login credentials: keep it readable by the owner only.
-	if err := os.WriteFile(ma.TokenPath, content, 0o600); err != nil {
+	// Replace atomically: interruption must not truncate the working login.
+	file, err := os.CreateTemp(filepath.Dir(ma.TokenPath), ".mi-token-*")
+	if err != nil {
+		return fmt.Errorf("保存 token 文件失败: %w", err)
+	}
+	defer os.Remove(file.Name())
+	if _, err := file.Write(content); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(file.Name(), ma.TokenPath); err != nil {
 		return fmt.Errorf("保存 token 文件失败: %w", err)
 	}
 	return nil

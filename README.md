@@ -45,7 +45,18 @@ Set `MI_USERNAME`, `MI_PASSWORD` and optionally `MI_API_TOKEN` in `.env` or the
 environment. With `MI_API_TOKEN`, scripts send `Authorization: Bearer <token>` and
 browsers use the token as the basic authentication password; a non-loopback
 `api.listen` requires it. If the login asks for a security verification, the panel
-links to the page that does it.
+links to the page that does it. The **账号登录** page (`/#/login`) can explicitly
+log in again and save fresh Xiaomi account tokens. Leave the password blank to
+use the configured password, or enter a new password (kept in memory only, never
+written to configuration). Complete any security verification and retry on this
+page. A failed login leaves the previous token file intact. The displayed saved
+state does not guarantee that Xiaomi still accepts the token.
+
+`GET /api/login` returns the configured account and whether credentials are saved;
+`POST /api/login` accepts `{"password":"..."}` (or `{}` for the configured password),
+logs in again and atomically saves `mi.token` with owner-only permissions. These
+routes require the same panel authentication as every other API route and never
+return tokens. This login is separate from the OAuth login for realtime events.
 
 Device pages generate their controls from the MIoT specification named by the
 device's `spec_type`. `spec.language` selects the translation language (default
